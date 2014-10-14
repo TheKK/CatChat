@@ -8,21 +8,15 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
-#define LISTEN_BACKLOG 50
-#define MAX_MSG_LENGTH 150
+#include "connect.h"
 
-#define handle_error(msg) \
-	do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define try(cmd); \
+	if (cmd == -1) exit(EXIT_FAILURE);
 
-/* server fd, client fd */
-int cfd;
-
-char* sock_path = NULL;
-struct sockaddr_un my_addr;
+char* sock_path;
+int is_running = 1;
 
 void
 show_version()
@@ -57,46 +51,34 @@ set_opt(int argc, char* argv[])
 	}
 }
 
-int
-init()
+void
+do_cmd(char* cmd)
 {
-	cfd = socket(PF_LOCAL, SOCK_STREAM, 0);
-	if (cfd == -1)
-		handle_error("socket");
-
-	/* Clean struct */
-	memset(&my_addr, 0, sizeof(struct sockaddr_un));
-
-	my_addr.sun_family = AF_LOCAL;
-	strcpy(my_addr.sun_path, sock_path);
-
-	if (connect(cfd, (struct sockaddr *) &my_addr,
-		    sizeof(struct sockaddr_un)) == -1)
-		handle_error("connect");
-
-	return 0;
+	switch (*cmd) {
+	case 'h':
+		break;
+	case 'q':
+		is_running = 0;
+		break;
+	default:
+		break;
+	}
 }
 
 void
 start_work()
 {
-	char msg[MAX_MSG_LENGTH];
-	int length;
+	char msg[MAX_TEXT_SIZE];
 
-	while ((strcmp(msg, "bye\0")) != 0){
-		fgets(msg, MAX_MSG_LENGTH, stdin);
-		/*send(cfd, msg, sizeof(msg), 0);*/
-		length = sizeof(msg);
-		write(cfd, &length, sizeof(length));
-		write(cfd, msg, length);
-		printf("msg send: %s\n", msg);
+	while (is_running) {
+		fgets(msg, MAX_TEXT_SIZE, stdin);
+		if (msg[0] == ':')
+			do_cmd(msg + 1);
+		else {
+			send(cnct_Getfd(), msg, MAX_TEXT_SIZE, 0);
+			printf("send: %s\n", msg);
+		}
 	}
-}
-
-void
-quit()
-{
-	close(cfd);
 }
 
 int
@@ -108,12 +90,19 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	if (init() == -1)
-		return 1;
+	printf("Init...\n");
+	try(cnct_Init(AF_LOCAL, sock_path));
 
+	printf("client socket fd: %d\n", cnct_Getfd());
+
+	printf("Connecting...\n");
+	try(cnct_Connect());
+
+	printf("Statr job\n");
 	start_work();
 
-	quit();
+	printf("Quit...\n");
+	try(cnct_Quit());
 
 	return 0;
 }

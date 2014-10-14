@@ -8,22 +8,21 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <unistd.h>
 
-#define LISTEN_BACKLOG 50
-#define MAX_MSG_LENGTH 150
+#include "connect.h"
 
-#define handle_error(msg) \
-	do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define LISTEN_BACKLOG 5
 
-/* server fd, client fd */
-int sfd, cfd;
+#define try(cmd); \
+	if (cmd == -1) exit(EXIT_FAILURE);
 
-char* sock_path = NULL;
-struct sockaddr_un my_addr, peer_addr;
-socklen_t peer_addr_size;
+char* sock_path;
+int is_running = 1;
+
+int peer_fd;
+struct sockaddr_un peer_addr;
+socklen_t peer_addrlen;
 
 void
 show_version()
@@ -58,59 +57,15 @@ set_opt(int argc, char* argv[])
 	}
 }
 
-int
-init()
-{
-	remove(sock_path);
-
-	sfd = socket(PF_LOCAL, SOCK_STREAM, 0);
-	if (sfd == -1)
-		handle_error("socket");
-
-	/* Clean struct */
-	memset(&my_addr, 0, sizeof(struct sockaddr_un));
-
-	my_addr.sun_family = AF_LOCAL;
-	strcpy(my_addr.sun_path, sock_path);
-
-	if (bind(sfd, (struct sockaddr *) &my_addr,
-		 sizeof(struct sockaddr_un)) == -1)
-		handle_error("bind");
-
-	printf("start listining...\n");
-	if (listen(sfd, LISTEN_BACKLOG) == -1)
-		handle_error("listen");
-
-	peer_addr_size = sizeof(struct sockaddr_un);
-	cfd = accept(sfd, (struct sockaddr *) &peer_addr, &peer_addr_size);
-	if (cfd == -1)
-		handle_error("accept");
-
-	printf("start chating...\n");
-
-	return 0;
-}
-
 void
 start_work()
 {
-	char msg[MAX_MSG_LENGTH];
-	int length;
+	char msg[MAX_TEXT_SIZE];
 
-	while ((strcmp(msg, "bye")) != 0){
-		if (read(cfd, &length, sizeof(length)) == 0)
-			continue;
-		read(cfd, msg, length);
+	while (is_running) {
+		while (recv(cnct_Getfd(), &msg, MAX_TEXT_SIZE, 0) == -1);
 		printf("msg: %s\n", msg);
 	}
-}
-
-void
-quit()
-{
-	close(sfd);
-	if (remove(sock_path) == -1)
-		handle_error("remove");
 }
 
 int
@@ -122,12 +77,26 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	if (init() == -1)
-		return 1;
+	printf("Init...\n");
+	try(cnct_Init(AF_LOCAL, sock_path));
 
+	printf("Binding...\n");
+	try(cnct_Bind());
+
+	printf("Listening...\n");
+	try(cnct_Listen(LISTEN_BACKLOG));
+
+	peer_fd = cnct_Accept((struct sockaddr*) &peer_addr, &peer_addrlen);
+	printf("server socket fd: %d\n", cnct_Getfd());
+	printf("client socket fd: %d\n", peer_fd);
+	printf("Connection accept!\n");
+
+	printf("Statr job\n");
 	start_work();
 
-	quit();
+	printf("Quit...\n");
+	try(cnct_Quit());
+	try(cnct_Remove());
 
 	return 0;
 }

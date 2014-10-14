@@ -11,8 +11,11 @@ SRC_PATH = $(PWD)/src
 
 # Object files
 OBJ_PATH = $(PWD)/obj
-SERVER_OBJ = server_main.o
-CLIENT_OBJ = client_main.o
+SERVER_OBJ = server_main.o	\
+	     connect.o		\
+
+CLIENT_OBJ = client_main.o	\
+	     connect.o		\
 
 # Include flags
 INCLUDE = -I $(PWD)/include
