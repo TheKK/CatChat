@@ -61,9 +61,13 @@ void
 start_work()
 {
 	char msg[MAX_TEXT_SIZE];
+	int len;
 
 	while (is_running) {
-		while (recv(cnct_Getfd(), &msg, MAX_TEXT_SIZE, 0) == -1);
+		if (read(peer_fd, &len, sizeof(len)) == 0)
+			continue;
+
+		read(peer_fd, msg, len);
 		printf("msg: %s\n", msg);
 	}
 }
