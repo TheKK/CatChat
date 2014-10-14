@@ -12,7 +12,8 @@ static struct sockaddr_un my_addr;
 int
 cnct_Init(int domain, char* sockPath)
 {
-	if ((my_fd = socket(domain, SOCK_STREAM, 0)) == -1) {
+	my_fd = socket(domain, SOCK_STREAM, 0);
+	if (my_fd == -1) {
 		perror("socket");
 		return -1;
 	}
@@ -73,13 +74,16 @@ cnct_Listen(int backlog)
 int
 cnct_Accept(struct sockaddr* addr, socklen_t* len)
 {
+	int peer_fd;
+
 	*len = sizeof(*addr);
-	if (accept(my_fd, (struct sockaddr*) addr, len) == -1) {
+	peer_fd = accept(my_fd, (struct sockaddr*) addr, len);
+	if (peer_fd == -1) {
 		perror("accept");
 		return -1;
 	}
 
-	return 0;
+	return peer_fd;
 }
 
 int

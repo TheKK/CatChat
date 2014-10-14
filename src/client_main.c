@@ -69,17 +69,14 @@ void
 start_work()
 {
 	char msg[MAX_TEXT_SIZE];
-	int len;
 
 	while (is_running) {
 		fgets(msg, MAX_TEXT_SIZE, stdin);
 		if (msg[0] == ':')
 			do_cmd(msg + 1);
 		else {
-			len = sizeof(msg);
-			write(cnct_Getfd(), &len, sizeof(len));
-			write(cnct_Getfd(), msg, len);
-			printf("send: %s\n", msg);
+			send(cnct_Getfd(), msg, MAX_TEXT_SIZE, 0);
+			printf("send: %s", msg);
 		}
 	}
 }

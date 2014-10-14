@@ -61,14 +61,19 @@ void
 start_work()
 {
 	char msg[MAX_TEXT_SIZE];
-	int len;
+	int flag;
 
 	while (is_running) {
-		if (read(peer_fd, &len, sizeof(len)) == 0)
-			continue;
+		flag = recv(peer_fd, msg, MAX_TEXT_SIZE, 0);
+		if (flag == -1) {
+			perror("recv");
+			break;
+		} else if (flag == 0) {
+			printf("client disconnected\n");
+			break;
+		}
 
-		read(peer_fd, msg, len);
-		printf("msg: %s\n", msg);
+		printf("msg: %s", msg);
 	}
 }
 
