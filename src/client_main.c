@@ -6,8 +6,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <getopt.h>
-#include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "connect.h"
@@ -75,11 +76,9 @@ start_work()
 		if (msg[0] == ':')
 			do_cmd(msg + 1);
 		else {
-			send(cnct_Getfd(), msg, MAX_TEXT_SIZE, 0);
-			/*if (cnct_SendMsg(msg) == -1)*/
-				/*perror("send");*/
-
-			printf("send: %s", msg);
+			if (cnct_SendMsg(msg) == -1)
+				perror("send");
+			printf("I said: %s\n", msg);
 		}
 	}
 }

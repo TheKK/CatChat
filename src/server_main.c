@@ -6,8 +6,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <getopt.h>
-#include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "connect.h"
@@ -64,9 +65,7 @@ start_work()
 	int flag;
 
 	while (is_running) {
-		flag = recv(peer_fd, msg, MAX_TEXT_SIZE, 0);
-		printf("strlen: %d\n", (int) strlen(msg));
-		/*flag = cnct_RecvMsg(peer_fd, msg);*/
+		flag = cnct_RecvMsg(peer_fd, msg);
 		if (flag == -1) {
 			perror("recv");
 			break;
@@ -74,8 +73,7 @@ start_work()
 			printf("client disconnected\n");
 			break;
 		}
-
-		printf("msg: %s", msg);
+		printf("You said: %s\n", msg);
 	}
 }
 

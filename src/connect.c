@@ -100,17 +100,24 @@ cnct_Remove()
 int
 cnct_SendMsg(char* msg)
 {
-	int len, flag;
-	len = strlen(msg);
+	char* c;
+	int flag;
+	uint8_t len;
 
-	printf("strlen: %d\n", len);
-	flag = send(my_fd, &len, sizeof(len), 0);
+	/* remove next-line symbol */
+	c = index(msg, '\n');
+	*c = '\0';
+
+	/*
+	 * Send 1 byte data of length of msg
+	 * then send entire msg(include \0)
+	 */
+	len = strlen(msg) + 1;
+
+	flag = send(cnct_Getfd(), &len, sizeof(len), 0);
 	if (flag <= 0)
 		return flag;
-
-	flag = send(my_fd, msg, len, 0);
-	if (flag <= 0)
-		return flag;
+	flag = send(cnct_Getfd(), msg, len, 0);
 
 	return flag;
 }
@@ -118,16 +125,17 @@ cnct_SendMsg(char* msg)
 int
 cnct_RecvMsg(int fd, char* buf)
 {
-	int len, flag;
+	int flag;
+	uint8_t len;
 
+	/*
+	 * Read 1 byte data of length of msg
+	 * then read entire msg(include \0)
+	 */
 	flag = recv(fd, &len, sizeof(len), 0);
 	if (flag <= 0)
 		return flag;
-	printf("strlen: %d\n", len);
-
 	flag = recv(fd, buf, len, 0);
-	if (flag <= 0)
-		return flag;
 
 	return flag;
 }
