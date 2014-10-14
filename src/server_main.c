@@ -65,6 +65,8 @@ start_work()
 
 	while (is_running) {
 		flag = recv(peer_fd, msg, MAX_TEXT_SIZE, 0);
+		printf("strlen: %d\n", (int) strlen(msg));
+		/*flag = cnct_RecvMsg(peer_fd, msg);*/
 		if (flag == -1) {
 			perror("recv");
 			break;

@@ -76,6 +76,9 @@ start_work()
 			do_cmd(msg + 1);
 		else {
 			send(cnct_Getfd(), msg, MAX_TEXT_SIZE, 0);
+			/*if (cnct_SendMsg(msg) == -1)*/
+				/*perror("send");*/
+
 			printf("send: %s", msg);
 		}
 	}

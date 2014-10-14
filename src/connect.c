@@ -98,9 +98,38 @@ cnct_Remove()
 }
 
 int
-cnct_SendMsg(const char* msg)
+cnct_SendMsg(char* msg)
 {
-	return 0;
+	int len, flag;
+	len = strlen(msg);
+
+	printf("strlen: %d\n", len);
+	flag = send(my_fd, &len, sizeof(len), 0);
+	if (flag <= 0)
+		return flag;
+
+	flag = send(my_fd, msg, len, 0);
+	if (flag <= 0)
+		return flag;
+
+	return flag;
+}
+
+int
+cnct_RecvMsg(int fd, char* buf)
+{
+	int len, flag;
+
+	flag = recv(fd, &len, sizeof(len), 0);
+	if (flag <= 0)
+		return flag;
+	printf("strlen: %d\n", len);
+
+	flag = recv(fd, buf, len, 0);
+	if (flag <= 0)
+		return flag;
+
+	return flag;
 }
 
 int
