@@ -5,7 +5,7 @@
  #
 
 CXX = gcc
-CXXFLAG = -Wall -std=c99 -g
+CXXFLAG = -Wall -std=gnu99 -g
 
 SRC_PATH = $(PWD)/src
 
@@ -22,7 +22,7 @@ CLIENT_OBJ = client_main.o	\
 INCLUDE = -I $(PWD)/include
 
 # Libs flags
-LIB =
+LIB = -lpthread
 
 SERVER_OUT_EXE = server
 CLIENT_OUT_EXE = client
@@ -45,6 +45,7 @@ $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 .PHONY: tag
 tag:
 	@rm -f tags
+	@ctags -aR --fields=+l --c-kinds=+px /usr/include/pthread.h
 	@ctags -aR --fields=+l --c-kinds=+px /usr/include/sys/socket.h
 	@ctags -aR --fields=+l --c-kinds=+px /usr/include/bits/socket.h
 	@ctags -aR --fields=+l --c-kinds=+px $(PWD)
