@@ -4,27 +4,38 @@
  * File: server_main.c
  */
 
+#include <getopt.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <getopt.h>
 #include <strings.h>
+#include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "connect.h"
 
+/* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
 
-#define try(cmd); \
+#define TRY(cmd); \
 	if (cmd == -1) exit(EXIT_FAILURE);
 
+/* ===================== Global variables ===================== */
 char* sock_path;
-int is_running = 1;
+bool server_is_running = true;
 
-int peer_fd;
-struct sockaddr_un peer_addr;
-socklen_t peer_addrlen;
+struct client_list
+{
+	pthread_mutex_t muxtex;
+	uint8_t size;
+	pthread_t thread[5];
+};
+struct client_list client_list;
 
+/* ===================== Functions ===================== */
 void
 show_version()
 {
@@ -58,55 +69,94 @@ set_opt(int argc, char* argv[])
 	}
 }
 
-void
-start_work()
+void*
+client_handler(void* args)
 {
 	char msg[MAX_TEXT_SIZE];
+	int peer_fd;
 	int flag;
 
-	while (is_running) {
+	peer_fd = ((int*) args)[0];
+	printf("peer_fd in thread: %d\n", peer_fd);
+
+	while (server_is_running) {
 		flag = cnct_RecvMsg(peer_fd, msg);
 		if (flag == -1) {
 			perror("recv");
 			break;
 		} else if (flag == 0) {
-			printf("client disconnected\n");
+			printf("client %d disconnected\n", peer_fd);
 			break;
 		}
-		printf("You said: %s\n", msg);
+		printf("peer %d said: %s\n", peer_fd, msg);
 	}
+
+	pthread_mutex_lock(&client_list.muxtex);
+	client_list.size--;
+	printf("client: %d\n", client_list.size);
+	pthread_mutex_unlock(&client_list.muxtex);
+
+	pthread_exit(NULL);
+}
+
+void
+sig_handler(int signum, siginfo_t* info, void* ptr)
+{
+	server_is_running = false;
 }
 
 int
 main(int argc, char* argv[])
 {
+	int peer_fd;
+	struct sockaddr_un peer_addr;
+	socklen_t peer_addrlen;
+	struct sigaction act;
+
+	/* Setup signal handler */
+	act.sa_sigaction = sig_handler;
+	act.sa_flags = SA_SIGINFO;
+	sigaction(SIGTERM, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+
 	set_opt(argc, argv);
 	if (sock_path == NULL) {
 		show_help();
 		return 1;
 	}
 
+	pthread_mutex_init(&client_list.muxtex, NULL);
+	client_list.size = 0;
+
 	printf("Init...\n");
-	try(cnct_Init(AF_LOCAL, sock_path));
+	TRY(cnct_Init(AF_LOCAL, sock_path));
 
 	printf("Binding...\n");
-	try(cnct_Bind());
+	TRY(cnct_Bind());
 
 	printf("Listening...\n");
-	try(cnct_Listen(LISTEN_BACKLOG));
+	TRY(cnct_Listen(LISTEN_BACKLOG));
 
-	peer_fd = cnct_Accept((struct sockaddr*) &peer_addr, &peer_addrlen);
-	printf("server socket fd: %d\n", cnct_Getfd());
-	printf("client socket fd: %d\n", peer_fd);
-	printf("Connection accept!\n");
-
-	printf("Statr job\n");
-	start_work();
+	while (server_is_running) {
+		peer_fd = cnct_Accept((struct sockaddr*) &peer_addr,
+				      &peer_addrlen);
+		if (peer_fd == -1)
+			break;
+		else {
+			printf("peer_fd: %d\n", peer_fd);
+			pthread_mutex_lock(&client_list.muxtex);
+			pthread_create(&client_list.thread[client_list.size],
+				       NULL, client_handler, &peer_fd);
+			client_list.size++;
+			printf("client: %d\n", client_list.size);
+			pthread_mutex_unlock(&client_list.muxtex);
+		}
+	}
 
 	printf("Quit...\n");
-	try(cnct_Quit());
-	try(cnct_Remove());
+	TRY(cnct_Quit());
+	TRY(cnct_Remove());
 
+	pthread_mutex_destroy(&client_list.muxtex);
 	return 0;
 }
-
