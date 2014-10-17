@@ -100,13 +100,8 @@ cnct_Remove()
 int
 cnct_SendMsg(char* msg)
 {
-	char* c;
 	int flag;
 	uint8_t len;
-
-	/* remove next-line symbol */
-	c = index(msg, '\n');
-	*c = '\0';
 
 	/*
 	 * Send 1 byte data of length of msg

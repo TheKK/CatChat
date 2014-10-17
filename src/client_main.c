@@ -4,21 +4,26 @@
  * File: client_main.c
  */
 
+#include <getopt.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <getopt.h>
 #include <strings.h>
 #include <unistd.h>
 
 #include "connect.h"
 
-#define try(cmd); \
+/* ===================== Macros ===================== */
+#define TRY(cmd); \
 	if (cmd == -1) exit(EXIT_FAILURE);
 
+/* ===================== Global variables ===================== */
 char* sock_path;
-int is_running = 1;
+bool client_is_running = true;
 
+/* ===================== Functions ===================== */
 void
 show_version()
 {
@@ -29,6 +34,17 @@ void
 show_help()
 {
 	printf("chatchat client: [-d socket dir][-v version][-h help]\n");
+}
+
+void
+remove_next_line_symbol(char* str)
+{
+	char* c;
+	c = index(str, '\n');
+	if (c == NULL)
+		return;
+	else
+		*c = '\0';
 }
 
 void
@@ -55,37 +71,50 @@ set_opt(int argc, char* argv[])
 void
 do_cmd(char* cmd)
 {
-	switch (*cmd) {
-	case 'h':
-		break;
-	case 'q':
-		is_running = 0;
-		break;
-	default:
-		break;
-	}
+	if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0)
+		client_is_running = false;
+	else if (strcmp(cmd, "h") == 0|| strcmp(cmd, "help") == 0)
+		printf("Help page work in progress\n");
+	else
+		printf("[SYSTEM] Command %s not found\n", cmd);
 }
 
 void
 start_work()
 {
 	char msg[MAX_TEXT_SIZE];
+	memset(msg, 0, MAX_TEXT_SIZE);
 
-	while (is_running) {
+	while (client_is_running) {
+		printf(">>");
 		fgets(msg, MAX_TEXT_SIZE, stdin);
+		remove_next_line_symbol(msg);
 		if (msg[0] == ':')
 			do_cmd(msg + 1);
 		else {
-			if (cnct_SendMsg(msg) == -1)
-				perror("send");
-			printf("I said: %s\n", msg);
+			if (cnct_SendMsg(msg) != -1)
+				printf("I said: %s\n", msg);
 		}
 	}
+}
+
+void
+sig_handler(int signum, siginfo_t* info, void* ptr)
+{
+	printf("\r[SYSTEM]Use \":q<enter>\" to exit\n");
 }
 
 int
 main(int argc, char* argv[])
 {
+	struct sigaction act;
+
+	/* Setup signal handler */
+	act.sa_sigaction = sig_handler;
+	act.sa_flags = SA_SIGINFO;
+	/*sigaction(SIGTERM, &act, NULL);*/
+	sigaction(SIGINT, &act, NULL);
+
 	set_opt(argc, argv);
 	if (sock_path == NULL) {
 		show_help();
@@ -93,18 +122,18 @@ main(int argc, char* argv[])
 	}
 
 	printf("Init...\n");
-	try(cnct_Init(AF_LOCAL, sock_path));
+	TRY(cnct_Init(AF_LOCAL, sock_path));
 
 	printf("client socket fd: %d\n", cnct_Getfd());
 
 	printf("Connecting...\n");
-	try(cnct_Connect());
+	TRY(cnct_Connect());
 
 	printf("Statr job\n");
 	start_work();
 
 	printf("Quit...\n");
-	try(cnct_Quit());
+	TRY(cnct_Quit());
 
 	return 0;
 }
