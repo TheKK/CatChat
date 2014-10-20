@@ -88,17 +88,21 @@ void
 start_work()
 {
 	char msg[MAX_TEXT_SIZE];
-	memset(msg, 0, MAX_TEXT_SIZE);
 
 	while (client_is_running) {
 		printf(">>");
+
+		memset(msg, 0, MAX_TEXT_SIZE);
 		fgets(msg, MAX_TEXT_SIZE, stdin);
 		remove_next_line_symbol(msg);
-		if (msg[0] == ':')
+
+		if (msg[0] == ':') /* Is command */
 			do_cmd(msg + 1);
+		else if (msg[0] == '\0') /* No text */
+			continue;
 		else {
-			if (cnct_SendMsg(msg) != -1)
-				printf("I said: %s\n", msg);
+			TRY(cnct_SendMsg(msg));
+			printf("I said: %s\n", msg);
 		}
 	}
 }
