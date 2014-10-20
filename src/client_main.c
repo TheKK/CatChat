@@ -110,6 +110,12 @@ start_work()
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
+	if (signum == SIGPIPE) {
+		printf("\r[SYSTEM]Disconnected...\n");
+		TRY(cnct_Quit());
+		exit(EXIT_FAILURE);
+	}
+
 	printf("\r[SYSTEM]Use \":q<enter>\" to exit\n");
 }
 
@@ -123,6 +129,7 @@ main(int argc, char* argv[])
 	act.sa_flags = SA_SIGINFO;
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGPIPE, &act, NULL);
 
 	set_opt(argc, argv);
 	if (sock_path == NULL) {
@@ -130,20 +137,19 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	printf("Init...\n");
+	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
 
-	printf("client socket fd: %d\n", cnct_Getfd());
+	printf("\r[SYSTEM]client socket fd: %d\n", cnct_Getfd());
 
-	printf("Connecting...\n");
+	printf("\r[SYSTEM]Connecting...\n");
 	TRY(cnct_Connect());
 
-	printf("Statr job\n");
+	printf("\r[SYSTEM]Start work\n");
 	start_work();
 
-	printf("Quit...\n");
+	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 
-	return 0;
+	return EXIT_SUCCESS;
 }
-

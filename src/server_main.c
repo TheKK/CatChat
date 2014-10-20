@@ -82,7 +82,7 @@ client_handler(void* args)
 	int flag;
 
 	peer_fd = ((int*) args)[0];
-	printf("peer_fd in thread: %d\n", peer_fd);
+	printf("\r[INFO]client connected: peer_fd = %d\n", peer_fd);
 
 	while (server_is_running) {
 		flag = cnct_RecvMsg(peer_fd, msg);
@@ -90,15 +90,17 @@ client_handler(void* args)
 			perror("recv()");
 			break;
 		} else if (flag == 0) {
-			printf("client %d disconnected\n", peer_fd);
+			printf("\r[INFO]client disconnected: peer_fd = %d\n",
+			       peer_fd);
 			break;
 		}
-		printf("peer %d said: %s\n", peer_fd, msg);
+		printf("\r[MSG]client (peer_fd = %d) said: %s\n",
+		       peer_fd, msg);
 	}
 
 	pthread_mutex_lock(&client_list.muxtex);
 	client_list.size--;
-	printf("client: %d\n", client_list.size);
+	printf("\r[INFO]client count: %d\n", client_list.size);
 	pthread_mutex_unlock(&client_list.muxtex);
 
 	pthread_exit(NULL);
@@ -133,13 +135,13 @@ main(int argc, char* argv[])
 	pthread_mutex_init(&client_list.muxtex, NULL);
 	client_list.size = 0;
 
-	printf("Init...\n");
+	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
 
-	printf("Binding...\n");
+	printf("\r[SYSTEM]Binding...\n");
 	TRY(cnct_Bind());
 
-	printf("Listening...\n");
+	printf("\r[SYSTEM]Listening...\n");
 	TRY(cnct_Listen(LISTEN_BACKLOG));
 
 	while (server_is_running) {
@@ -148,23 +150,21 @@ main(int argc, char* argv[])
 		if (peer_fd == -1)
 			break;
 		else {
-			printf("peer_fd: %d\n", peer_fd);
-
 			pthread_mutex_lock(&client_list.muxtex);
 
 			pthread_create(&client_list.thread[client_list.size],
 				       NULL, client_handler, &peer_fd);
 			client_list.size++;
-			printf("client: %d\n", client_list.size);
 
 			pthread_mutex_unlock(&client_list.muxtex);
 		}
 	}
 
-	printf("Quit...\n");
+	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 	TRY(cnct_Remove());
 
 	pthread_mutex_destroy(&client_list.muxtex);
-	return 0;
+
+	return EXIT_SUCCESS;
 }
