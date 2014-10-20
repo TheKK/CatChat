@@ -21,7 +21,12 @@
 #define LISTEN_BACKLOG 5
 
 #define TRY(cmd); \
-	if (cmd == -1) exit(EXIT_FAILURE);
+	do { \
+		if (cmd == -1) { \
+			perror(#cmd); \
+			exit(EXIT_FAILURE); \
+		} \
+	} while(0);
 
 /* ===================== Global variables ===================== */
 char* sock_path;
@@ -82,7 +87,7 @@ client_handler(void* args)
 	while (server_is_running) {
 		flag = cnct_RecvMsg(peer_fd, msg);
 		if (flag == -1) {
-			perror("recv");
+			perror("recv()");
 			break;
 		} else if (flag == 0) {
 			printf("client %d disconnected\n", peer_fd);
@@ -144,11 +149,14 @@ main(int argc, char* argv[])
 			break;
 		else {
 			printf("peer_fd: %d\n", peer_fd);
+
 			pthread_mutex_lock(&client_list.muxtex);
+
 			pthread_create(&client_list.thread[client_list.size],
 				       NULL, client_handler, &peer_fd);
 			client_list.size++;
 			printf("client: %d\n", client_list.size);
+
 			pthread_mutex_unlock(&client_list.muxtex);
 		}
 	}

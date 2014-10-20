@@ -17,7 +17,12 @@
 
 /* ===================== Macros ===================== */
 #define TRY(cmd); \
-	if (cmd == -1) exit(EXIT_FAILURE);
+	do { \
+		if (cmd == -1) { \
+			perror(#cmd); \
+			exit(EXIT_FAILURE); \
+		} \
+	} while(0);
 
 /* ===================== Global variables ===================== */
 char* sock_path;
@@ -112,7 +117,7 @@ main(int argc, char* argv[])
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
 	act.sa_flags = SA_SIGINFO;
-	/*sigaction(SIGTERM, &act, NULL);*/
+	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
 	set_opt(argc, argv);

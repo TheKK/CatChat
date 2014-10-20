@@ -13,10 +13,8 @@ int
 cnct_Init(int domain, char* sockPath)
 {
 	my_fd = socket(domain, SOCK_STREAM, 0);
-	if (my_fd == -1) {
-		perror("socket");
+	if (my_fd == -1)
 		return -1;
-	}
 
 	memset(&my_addr, 0, sizeof(struct sockaddr_un));
 	my_addr.sun_family = domain;
@@ -28,10 +26,8 @@ cnct_Init(int domain, char* sockPath)
 int
 cnct_Quit()
 {
-	if (close(my_fd) == -1) {
-		perror("close");
+	if (close(my_fd) == -1)
 		return -1;
-	}
 
 	return 0;
 }
@@ -41,7 +37,6 @@ cnct_Bind()
 {
 	if (bind(my_fd, (struct sockaddr*) &my_addr,
 		 sizeof(struct sockaddr_un)) == -1) {
-		perror("bind");
 		return -1;
 	}
 
@@ -53,7 +48,6 @@ cnct_Connect()
 {
 	if (connect(my_fd, (struct sockaddr*) &my_addr,
 		    sizeof(struct sockaddr_un)) == -1) {
-		perror("connect");
 		return -1;
 	}
 
@@ -63,10 +57,8 @@ cnct_Connect()
 int
 cnct_Listen(int backlog)
 {
-	if (listen(my_fd, backlog) == -1) {
-		perror("listen");
+	if (listen(my_fd, backlog) == -1)
 		return -1;
-	}
 
 	return 0;
 }
@@ -78,10 +70,8 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 
 	*len = sizeof(*addr);
 	peer_fd = accept(my_fd, (struct sockaddr*) addr, len);
-	if (peer_fd == -1) {
-		perror("accept");
+	if (peer_fd == -1)
 		return -1;
-	}
 
 	return peer_fd;
 }
@@ -89,10 +79,8 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 int
 cnct_Remove()
 {
-	if (remove(my_addr.sun_path) == -1) {
-		perror("remove");
+	if (remove(my_addr.sun_path) == -1)
 		return -1;
-	}
 
 	return 0;
 }
