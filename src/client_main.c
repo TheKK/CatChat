@@ -18,6 +18,7 @@
  */
 
 #include <getopt.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -97,12 +98,12 @@ do_cmd(char* cmd)
 		printf("[SYSTEM] Command %s not found\n", cmd);
 }
 
-void
-start_work()
+void*
+sender(void* args)
 {
 	char msg[MAX_TEXT_SIZE];
 
-	while (client_is_running) {
+	while (1) {
 		printf(">>");
 
 		memset(msg, 0, MAX_TEXT_SIZE);
@@ -114,10 +115,36 @@ start_work()
 		else if (msg[0] == '\0') /* No text */
 			continue;
 		else {
-			TRY(cnct_SendMsg(msg));
-			printf("I said: %s\n", msg);
+			TRY(cnct_SendMsg(cnct_Getfd(), msg));
 		}
 	}
+
+	return  NULL;
+}
+
+void*
+receiver(void* args)
+{
+	char msg[MAX_TEXT_SIZE];
+	int flag;
+
+	while (1) {
+		flag = cnct_RecvMsg(cnct_Getfd(), msg);
+
+		if (flag == -1) {
+			perror("cnct_RecvMsg()");
+			client_is_running = false;
+			break;
+		} else if (flag == 0) { /* Disconnected */
+			perror("cnct_RecvMsg()");
+			client_is_running = false;
+			break;
+		}
+
+		printf("%s\n", msg);
+	}
+
+	return NULL;
 }
 
 void
@@ -136,6 +163,7 @@ int
 main(int argc, char* argv[])
 {
 	struct sigaction act;
+	pthread_t sender_t, receiver_t;
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
@@ -159,10 +187,16 @@ main(int argc, char* argv[])
 	TRY(cnct_Connect());
 
 	printf("\r[SYSTEM]Start work\n");
-	start_work();
+	pthread_create(&sender_t, NULL, (void*) sender, NULL);
+	pthread_create(&receiver_t, NULL, (void*) receiver, NULL);
+
+	while (client_is_running);
 
 	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
+
+	pthread_cancel(sender_t);
+	pthread_cancel(receiver_t);
 
 	return EXIT_SUCCESS;
 }

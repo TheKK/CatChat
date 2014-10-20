@@ -38,7 +38,8 @@ int cnct_Connect();
 int cnct_Listen(int backlog);
 int cnct_Accept(struct sockaddr* addr, socklen_t* addr_len);
 int cnct_Remove();
-int cnct_SendMsg(char* msg);
+int cnct_SendMsg(int fd, char* msg);
+int test_send(int fd, char* msg);
 int cnct_RecvMsg(int fd, char* buff);
 
 int cnct_Getfd();

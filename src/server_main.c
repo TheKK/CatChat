@@ -52,8 +52,9 @@
 	} while(0);
 
 /* ===================== Global variables ===================== */
-char* sock_path;
-bool server_is_running = true;
+static char* sock_path;
+static bool server_is_running = true;
+static struct thpool_t* thpool;
 
 struct job_args
 {
@@ -99,28 +100,61 @@ client_handler(void* args)
 {
 	char msg[MAX_TEXT_SIZE];
 	char* name = NULL;
-	int fd;
+	int peer_fd;
 	int flag;
 
-	fd = ((struct job_args*)args)->fd;
+	peer_fd = ((struct job_args*)args)->fd;
 
-	printf("\r[INFO]client connected: peer_fd = %d\n", fd);
+	printf("\r[INFO]client connected: peer_fd = %d\n", peer_fd);
 
-	while (server_is_running) {
-		flag = cnct_RecvMsg(fd, msg);
+	while (1) {
+		flag = cnct_RecvMsg(peer_fd, msg);
+
+		/* Check error */
 		if (flag == -1) {
 			perror("recv()");
 			break;
 		} else if (flag == 0) {
 			printf("\r[INFO]client disconnected: fd = %d\n",
-			       fd);
+			       peer_fd);
 			break;
 		}
+
+		/* Check if you cast the spell */
+		if (strcmp(msg, "palus") == 0) {
+			printf("My eye!!! My EYEEEEEEE!!!\n");
+			server_is_running = false;
+			break;
+		}
+
+		cnct_SendMsg(peer_fd, msg);
 		printf("\r[MSG]%s (fd = %d) said: %s\n",
-		       name, fd, msg);
+		       name, peer_fd, msg);
 	}
 
-	pthread_exit(NULL);
+	return NULL;
+}
+
+void*
+accepter(void* args)
+{
+	int peer_fd;
+	struct job_args job_args;
+
+	while (1) {
+		peer_fd = cnct_Accept((struct sockaddr*) NULL, NULL);
+		if (peer_fd == -1) {
+			perror("cnct_Accept()");
+			break;
+		}
+		else {
+			job_args.fd = peer_fd;
+			thpool_add_work(thpool,
+					client_handler, (void*)&job_args);
+		}
+	}
+
+	return NULL;
 }
 
 void
@@ -132,12 +166,8 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
-	int peer_fd;
-	socklen_t peer_addrlen;
 	struct sigaction act;
-	struct sockaddr_un peer_addr;
-	struct thpool_t* thpool;
-	struct job_args job_args;
+	pthread_t accepter_t;
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
@@ -165,19 +195,11 @@ main(int argc, char* argv[])
 	thpool = thpool_init(SERVER_POOL_SIZE);
 
 	/* Server on */
-	while (server_is_running) {
-		peer_fd = cnct_Accept((struct sockaddr*) &peer_addr,
-				      &peer_addrlen);
-		if (peer_fd == -1) {
-			perror("cnct_Accept()");
-			break;
-		}
-		else {
-			job_args.fd = peer_fd;
-			thpool_add_work(thpool,
-					client_handler, (void*)&job_args);
-		}
-	}
+	pthread_create(&accepter_t, NULL, accepter, NULL);
+
+	while (server_is_running);
+
+	pthread_cancel(accepter_t);
 
 	/* Quit */
 	printf("\r[SYSTEM]Quit...\n");

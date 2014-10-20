@@ -81,7 +81,11 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 {
 	int peer_fd;
 
-	*len = sizeof(*addr);
+	if (addr == NULL)
+		len = NULL;
+	else
+		*len = sizeof(*addr);
+
 	peer_fd = accept(my_fd, (struct sockaddr*) addr, len);
 	if (peer_fd == -1)
 		return -1;
@@ -99,7 +103,7 @@ cnct_Remove()
 }
 
 int
-cnct_SendMsg(char* msg)
+cnct_SendMsg(int fd, char* msg)
 {
 	int flag;
 	uint8_t len;
@@ -110,10 +114,10 @@ cnct_SendMsg(char* msg)
 	 */
 	len = strlen(msg) + 1;
 
-	flag = send(cnct_Getfd(), &len, sizeof(len), 0);
+	flag = send(fd, &len, sizeof(len), 0);
 	if (flag <= 0)
 		return flag;
-	flag = send(cnct_Getfd(), msg, len, 0);
+	flag = send(fd, msg, len, 0);
 
 	return flag;
 }

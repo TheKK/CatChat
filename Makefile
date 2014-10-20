@@ -20,19 +20,23 @@
 CXX = gcc
 CXXFLAG = -Wall -std=gnu99 -g
 
-SRC_PATH = $(PWD)/src
+# Direcotries
+OUT_DIR = $(PWD)/obj
 
-# Object files
-OBJ_PATH = $(PWD)/obj
-SERVER_OBJ = server_main.o	\
-	     connect.o		\
-	     thpool.o
+SRC_DIR = $(PWD)/src
+INC_DIR = $(PWD)/include
 
-CLIENT_OBJ = client_main.o	\
-	     connect.o		\
+# Source fils and header files
+SRC = $(wildcard $(addsuffix /*.c, $(SRC_DIR)))
+INCLUDE = $(addprefix -I, $(INC_DIR))
+OBJ := $(addprefix $(OUT_DIR)/, $(notdir $(SRC:.c=.o)))
 
-# Include flags
-INCLUDE = -I $(PWD)/include
+SERVER_OBJ = $(OUT_DIR)/server_main.o	\
+	     $(OUT_DIR)/connect.o	\
+	     $(OUT_DIR)/thpool.o
+
+CLIENT_OBJ = $(OUT_DIR)/client_main.o	\
+	     $(OUT_DIR)/connect.o
 
 # Libs flags
 LIB = -lpthread
@@ -40,18 +44,18 @@ LIB = -lpthread
 SERVER_OUT_EXE = server
 CLIENT_OUT_EXE = client
 
-all: $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE)
+all: $(OBJ) $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE)
 	@echo "===========[[Everything done!!]]============"
 
-$(SERVER_OUT_EXE): $(addprefix $(OBJ_PATH)/, $(SERVER_OBJ))
+$(SERVER_OUT_EXE): $(SERVER_OBJ)
 	@echo "    LD    " $(notdir $@)
-	@$(CXX) $(addprefix $(OBJ_PATH)/, $(SERVER_OBJ)) $(CXXFLAG) $(LIB) -o $@
+	@$(CXX) $(SERVER_OBJ) $(CXXFLAG) $(LIB) -o $@
 
-$(CLIENT_OUT_EXE): $(addprefix $(OBJ_PATH)/, $(CLIENT_OBJ))
+$(CLIENT_OUT_EXE): $(CLIENT_OBJ)
 	@echo "    LD    " $(notdir $@)
-	@$(CXX) $(addprefix $(OBJ_PATH)/, $(CLIENT_OBJ)) $(CXXFLAG) $(LIB) -o $@
+	@$(CXX) $(CLIENT_OBJ) $(CXXFLAG) $(LIB) -o $@
 
-$(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
+$(OUT_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "    CC    " $(notdir $@)
 	@$(CXX) -c $< $(CXXFLAG) $(INCLUDE) -o $@
 
@@ -66,5 +70,5 @@ tag:
 
 .PHONY: clean
 clean:
-	@rm -frv $(OBJ_PATH)/*.o $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE)
+	@rm -frv $(OBJ) $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE)
 	@echo "===========[[Everything removed!!]]============"
