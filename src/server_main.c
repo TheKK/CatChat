@@ -37,10 +37,11 @@
  *
  * License: LGPL
  */
-#include "C-Thread-Pool/thpool.h"
+#include "thpool.h"
 
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
+#define SERVER_POOL_SIZE 3
 
 #define TRY(cmd); \
 	do { \
@@ -53,6 +54,11 @@
 /* ===================== Global variables ===================== */
 char* sock_path;
 bool server_is_running = true;
+
+struct job_args
+{
+	int fd;
+};
 
 /* ===================== Functions ===================== */
 void
@@ -96,6 +102,8 @@ client_handler(void* args)
 	int fd;
 	int flag;
 
+	fd = ((struct job_args*)args)->fd;
+
 	printf("\r[INFO]client connected: peer_fd = %d\n", fd);
 
 	while (server_is_running) {
@@ -124,10 +132,12 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
-	int id, peer_fd;
-	struct sockaddr_un peer_addr;
+	int peer_fd;
 	socklen_t peer_addrlen;
 	struct sigaction act;
+	struct sockaddr_un peer_addr;
+	struct thpool_t* thpool;
+	struct job_args job_args;
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
@@ -144,7 +154,6 @@ main(int argc, char* argv[])
 	/* Initialization */
 	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
-	TRY(clientPool_Init(client_handler));
 
 	printf("\r[SYSTEM]Binding...\n");
 	TRY(cnct_Bind());
@@ -152,18 +161,21 @@ main(int argc, char* argv[])
 	printf("\r[SYSTEM]Listening...\n");
 	TRY(cnct_Listen(LISTEN_BACKLOG));
 
-	while (server_is_running) {
-		while (clientPool_IsFull());
+	/* Init pool */
+	thpool = thpool_init(SERVER_POOL_SIZE);
 
-		clientPool_GetID(&id);
+	/* Server on */
+	while (server_is_running) {
 		peer_fd = cnct_Accept((struct sockaddr*) &peer_addr,
 				      &peer_addrlen);
-
-		if (peer_fd == -1)
+		if (peer_fd == -1) {
+			perror("cnct_Accept()");
 			break;
+		}
 		else {
-			/*pthread_create(&client_list.thread[client_list.size],*/
-				       /*NULL, client_handler, &arg);*/
+			job_args.fd = peer_fd;
+			thpool_add_work(thpool,
+					client_handler, (void*)&job_args);
 		}
 	}
 
@@ -171,7 +183,7 @@ main(int argc, char* argv[])
 	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 	TRY(cnct_Remove());
-	TRY(clientPool_Quit());
+	thpool_destroy(thpool);
 
 	return EXIT_SUCCESS;
 }
