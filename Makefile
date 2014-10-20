@@ -13,7 +13,7 @@ SRC_PATH = $(PWD)/src
 OBJ_PATH = $(PWD)/obj
 SERVER_OBJ = server_main.o	\
 	     connect.o		\
-	     pthread_array.o	\
+	     clientPool.o	\
 
 CLIENT_OBJ = client_main.o	\
 	     connect.o		\

@@ -1,7 +1,20 @@
 /*
- * Author: KK <thumbd03803@gmail.com>
+ * CatChat
+ * Copyright (C) 2014 TheKK <thumbd03803@gmail.com>
  *
- * File: server_main.c
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 #include <getopt.h>
@@ -17,6 +30,15 @@
 
 #include "connect.h"
 
+/*
+ * C-Thread-Pool
+ * Author:  Johan Hanssen Seferidis
+ * Created: 2011-08-12
+ *
+ * License: LGPL
+ */
+#include "C-Thread-Pool/thpool.h"
+
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
 
@@ -31,14 +53,6 @@
 /* ===================== Global variables ===================== */
 char* sock_path;
 bool server_is_running = true;
-
-struct client_list
-{
-	pthread_mutex_t muxtex;
-	uint8_t size;
-	pthread_t thread[5];
-};
-struct client_list client_list;
 
 /* ===================== Functions ===================== */
 void
@@ -78,30 +92,25 @@ void*
 client_handler(void* args)
 {
 	char msg[MAX_TEXT_SIZE];
-	int peer_fd;
+	char* name = NULL;
+	int fd;
 	int flag;
 
-	peer_fd = ((int*) args)[0];
-	printf("\r[INFO]client connected: peer_fd = %d\n", peer_fd);
+	printf("\r[INFO]client connected: peer_fd = %d\n", fd);
 
 	while (server_is_running) {
-		flag = cnct_RecvMsg(peer_fd, msg);
+		flag = cnct_RecvMsg(fd, msg);
 		if (flag == -1) {
 			perror("recv()");
 			break;
 		} else if (flag == 0) {
-			printf("\r[INFO]client disconnected: peer_fd = %d\n",
-			       peer_fd);
+			printf("\r[INFO]client disconnected: fd = %d\n",
+			       fd);
 			break;
 		}
-		printf("\r[MSG]client (peer_fd = %d) said: %s\n",
-		       peer_fd, msg);
+		printf("\r[MSG]%s (fd = %d) said: %s\n",
+		       name, fd, msg);
 	}
-
-	pthread_mutex_lock(&client_list.muxtex);
-	client_list.size--;
-	printf("\r[INFO]client count: %d\n", client_list.size);
-	pthread_mutex_unlock(&client_list.muxtex);
 
 	pthread_exit(NULL);
 }
@@ -115,7 +124,7 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
-	int peer_fd;
+	int id, peer_fd;
 	struct sockaddr_un peer_addr;
 	socklen_t peer_addrlen;
 	struct sigaction act;
@@ -132,11 +141,10 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	pthread_mutex_init(&client_list.muxtex, NULL);
-	client_list.size = 0;
-
+	/* Initialization */
 	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
+	TRY(clientPool_Init(client_handler));
 
 	printf("\r[SYSTEM]Binding...\n");
 	TRY(cnct_Bind());
@@ -145,26 +153,25 @@ main(int argc, char* argv[])
 	TRY(cnct_Listen(LISTEN_BACKLOG));
 
 	while (server_is_running) {
+		while (clientPool_IsFull());
+
+		clientPool_GetID(&id);
 		peer_fd = cnct_Accept((struct sockaddr*) &peer_addr,
 				      &peer_addrlen);
+
 		if (peer_fd == -1)
 			break;
 		else {
-			pthread_mutex_lock(&client_list.muxtex);
-
-			pthread_create(&client_list.thread[client_list.size],
-				       NULL, client_handler, &peer_fd);
-			client_list.size++;
-
-			pthread_mutex_unlock(&client_list.muxtex);
+			/*pthread_create(&client_list.thread[client_list.size],*/
+				       /*NULL, client_handler, &arg);*/
 		}
 	}
 
+	/* Quit */
 	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 	TRY(cnct_Remove());
-
-	pthread_mutex_destroy(&client_list.muxtex);
+	TRY(clientPool_Quit());
 
 	return EXIT_SUCCESS;
 }
