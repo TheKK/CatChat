@@ -17,8 +17,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+/* ===================== Headers ===================== */
 #include <getopt.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -40,21 +42,22 @@
 
 /* ===================== Global variables ===================== */
 char* sock_path;
-bool client_is_running = true;
+sem_t client_shouldDie;
 
 /* ===================== Functions ===================== */
 void
-show_version()
+client_showVersion()
 {
 	printf("chatchat client (OS homework) 0.01\n");
 }
 
 void
-show_help()
+client_showHelp()
 {
 	printf("chatchat client: [-d socket dir][-v version][-h help]\n");
 }
 
+/* TODO maybe place this to other file */
 void
 remove_next_line_symbol(char* str)
 {
@@ -67,31 +70,10 @@ remove_next_line_symbol(char* str)
 }
 
 void
-set_opt(int argc, char* argv[])
-{
-	int opt;
-
-	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
-		switch (opt) {
-		case 'd':
-			sock_path = optarg;
-			break;
-		case 'v':
-			show_version();
-		case 'h':
-		case '?':
-		default:
-			show_help();
-			break;
-		}
-	}
-}
-
-void
-do_cmd(char* cmd)
+cilent_doCmd(char* cmd)
 {
 	if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0)
-		client_is_running = false;
+		sem_post(&client_shouldDie);
 	else if (strcmp(cmd, "h") == 0|| strcmp(cmd, "help") == 0)
 		printf("Help page work in progress\n");
 	else
@@ -100,7 +82,7 @@ do_cmd(char* cmd)
 
 /* ===================== Thread functions ===================== */
 void*
-sender(void* args)
+thread_sender(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE];
 
@@ -112,7 +94,7 @@ sender(void* args)
 		remove_next_line_symbol(msg);
 
 		if (msg[0] == ':') /* Is command */
-			do_cmd(msg + 1);
+			cilent_doCmd(msg + 1);
 		else if (msg[0] == '\0') /* No text */
 			continue;
 		else {
@@ -124,7 +106,7 @@ sender(void* args)
 }
 
 void*
-receiver(void* args)
+client_receiver(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE];
 	int flag;
@@ -134,11 +116,11 @@ receiver(void* args)
 
 		if (flag == -1) {
 			perror("cnct_RecvMsg()");
-			client_is_running = false;
+			sem_post(&client_shouldDie);
 			break;
 		} else if (flag == 0) { /* Disconnected */
 			perror("cnct_RecvMsg()");
-			client_is_running = false;
+			sem_post(&client_shouldDie);
 			break;
 		}
 
@@ -152,6 +134,8 @@ receiver(void* args)
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
+	static int count = 0;
+
 	if (signum == SIGPIPE) {
 		printf("\r[SYSTEM]Disconnected...\n");
 		TRY(cnct_Quit());
@@ -159,6 +143,12 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 	}
 
 	printf("\r[SYSTEM]Use \":q<enter>\" to exit\n");
+
+	if (count++ == 7) {
+		printf("\rTeaching you, is hard...(noise)\n");
+		printf("\rSo you know what? You win, just go...(beep)\n");
+		sem_post(&client_shouldDie);
+	}
 }
 
 /* ===================== Main function ===================== */
@@ -167,39 +157,60 @@ main(int argc, char* argv[])
 {
 	struct sigaction act;
 	pthread_t sender_t, receiver_t;
+	int opt;
+
+	/* Set options */
+	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
+		switch (opt) {
+		case 'd':
+			sock_path = optarg;
+			break;
+		case 'v':
+			client_showVersion();
+		case 'h':
+		case '?':
+		default:
+			client_showHelp();
+			break;
+		}
+	}
+	if (sock_path == NULL) {
+		client_showHelp();
+		return 1;
+	}
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
-	act.sa_flags = SA_SIGINFO;
+	act.sa_flags = SA_RESTART;
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGPIPE, &act, NULL);
 
-	set_opt(argc, argv);
-	if (sock_path == NULL) {
-		show_help();
-		return 1;
-	}
+	/* Init semaphore */
+	sem_init(&client_shouldDie, 0, 0);
 
+	/* Initialize socket stuffs */
 	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
-
-	printf("\r[SYSTEM]client socket fd: %d\n", cnct_Getfd());
 
 	printf("\r[SYSTEM]Connecting...\n");
 	TRY(cnct_Connect());
 
-	printf("\r[SYSTEM]Start work\n");
-	pthread_create(&sender_t, NULL, (void*) sender, NULL);
-	pthread_create(&receiver_t, NULL, (void*) receiver, NULL);
+	/* Connected  then wait for death... */
+	printf("\r[SYSTEM]Connected!!\n");
+	pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
+	pthread_create(&receiver_t, NULL, (void*) client_receiver, NULL);
 
-	while (client_is_running);
+	sem_wait(&client_shouldDie);
+
+	/* Clean these mess and quit */
+	pthread_cancel(sender_t);
+	pthread_cancel(receiver_t);
+	sem_destroy(&client_shouldDie);
 
 	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 
-	pthread_cancel(sender_t);
-	pthread_cancel(receiver_t);
 
 	return EXIT_SUCCESS;
 }
