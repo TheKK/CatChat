@@ -86,6 +86,12 @@ thread_sender(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE];
 
+	/* Tell server you name */
+	printf("[SYSTEM]What is you name: ");
+	fgets(msg, 10, stdin);
+	remove_next_line_symbol(msg);
+	cnct_SendMsg(cnct_Getfd(), msg);
+
 	while (1) {
 		printf(">>");
 
@@ -106,7 +112,7 @@ thread_sender(void* args)
 }
 
 void*
-client_receiver(void* args)
+thread_receiver(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE];
 	int flag;
@@ -124,7 +130,7 @@ client_receiver(void* args)
 			break;
 		}
 
-		printf("%s\n", msg);
+		printf("\r%s\n", msg);
 	}
 
 	return NULL;
@@ -199,7 +205,7 @@ main(int argc, char* argv[])
 	/* Connected  then wait for death... */
 	printf("\r[SYSTEM]Connected!!\n");
 	pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
-	pthread_create(&receiver_t, NULL, (void*) client_receiver, NULL);
+	pthread_create(&receiver_t, NULL, (void*) thread_receiver, NULL);
 
 	sem_wait(&client_shouldDie);
 

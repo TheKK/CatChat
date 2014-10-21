@@ -81,17 +81,21 @@ server_showHelp()
 void*
 thread_clientHandler(void* args)
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
-	char* name = NULL;
-	int peer_fd;
+	/* TODO: User char pointer rather array of char */
+	char name[20];
+	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
+	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
 	int flag;
+	int peer_fd;
 
 	peer_fd = ((struct job_args*)args)->fd;
 
-	printf("\r[INFO]client connected: peer_fd = %d\n", peer_fd);
+	/* Receive name from client */
+	cnct_RecvMsg(peer_fd, name);
+	printf("\r[INFO]client %s connected: peer_fd = %d\n", name, peer_fd);
 
 	while (1) {
-		flag = cnct_RecvMsg(peer_fd, msg);
+		flag = cnct_RecvMsg(peer_fd, recvMsg);
 
 		/* Check error */
 		if (flag == -1) {
@@ -104,15 +108,19 @@ thread_clientHandler(void* args)
 		}
 
 		/* Check if you cast the spell your grandma told you... */
-		if (strcmp(msg, "palus") == 0) {
+		if (strcmp(recvMsg, "palus") == 0) {
 			printf("My eye!!! My EYEEEEEEE!!!\n");
 			sem_post(&server_shouldDie);
 			break;
 		}
 
-		cnct_SendMsg(peer_fd, msg);
+		memset(sendMsg, 0, sizeof(sendMsg));
+		strcat(sendMsg, name);
+		strcat(sendMsg, " say: ");
+		strcat(sendMsg, recvMsg);
+		cnct_SendMsg(peer_fd, sendMsg);
 		printf("\r[MSG]%s (fd = %d) said: %s\n",
-		       name, peer_fd, msg);
+		       name, peer_fd, sendMsg);
 	}
 
 	return NULL;
