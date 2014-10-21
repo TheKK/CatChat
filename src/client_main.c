@@ -102,13 +102,13 @@ do_cmd(char* cmd)
 void*
 sender(void* args)
 {
-	char msg[MAX_TEXT_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE];
 
 	while (1) {
 		printf(">>");
 
-		memset(msg, 0, MAX_TEXT_SIZE);
-		fgets(msg, MAX_TEXT_SIZE, stdin);
+		memset(msg, 0, CONNECT_MAX_MSG_SIZE);
+		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
 		remove_next_line_symbol(msg);
 
 		if (msg[0] == ':') /* Is command */
@@ -126,7 +126,7 @@ sender(void* args)
 void*
 receiver(void* args)
 {
-	char msg[MAX_TEXT_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE];
 	int flag;
 
 	while (1) {

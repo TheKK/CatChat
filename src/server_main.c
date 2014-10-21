@@ -17,6 +17,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+/* ===================== Headers ===================== */
 #include <getopt.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -52,54 +53,35 @@
 	} while(0);
 
 /* ===================== Global variables ===================== */
-static char* sock_path;
-static bool server_is_running = true;
-static struct thpool_t* thpool;
+static sem_t server_shouldDie;
+struct thpool_t* thpool;
 
 struct job_args
 {
 	int fd;
 };
 
+/* ===================== Prototypes ===================== */
+void sig_handler(int signum, siginfo_t* info, void* ptr);
+
 /* ===================== Functions ===================== */
 void
-show_version()
+server_showVersion()
 {
 	printf("chatchat server (OS homework) 0.01\n");
 }
 
 void
-show_help()
+server_showHelp()
 {
 	printf("chatchat server: [-d socket dir][-v version][-h help]\n");
 }
 
-void
-set_opt(int argc, char* argv[])
-{
-	int opt;
-
-	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
-		switch (opt) {
-		case 'd':
-			sock_path = optarg;
-			break;
-		case 'v':
-			show_version();
-		case 'h':
-		case '?':
-		default:
-			show_help();
-			break;
-		}
-	}
-}
-
 /* ===================== Thread functions ===================== */
 void*
-client_handler(void* args)
+thread_clientHandler(void* args)
 {
-	char msg[MAX_TEXT_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE];
 	char* name = NULL;
 	int peer_fd;
 	int flag;
@@ -121,10 +103,10 @@ client_handler(void* args)
 			break;
 		}
 
-		/* Check if you cast the spell */
+		/* Check if you cast the spell your grandma told you... */
 		if (strcmp(msg, "palus") == 0) {
 			printf("My eye!!! My EYEEEEEEE!!!\n");
-			server_is_running = false;
+			sem_post(&server_shouldDie);
 			break;
 		}
 
@@ -137,7 +119,7 @@ client_handler(void* args)
 }
 
 void*
-accepter(void* args)
+thread_accepter(void* args)
 {
 	int peer_fd;
 	struct job_args job_args;
@@ -151,7 +133,7 @@ accepter(void* args)
 		else {
 			job_args.fd = peer_fd;
 			thpool_add_work(thpool,
-					client_handler, (void*)&job_args);
+					thread_clientHandler, (void*)&job_args);
 		}
 	}
 
@@ -162,15 +144,36 @@ accepter(void* args)
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
-	server_is_running = false;
 }
 
 /* ===================== Main function ===================== */
 int
 main(int argc, char* argv[])
 {
-	struct sigaction act;
+	char* sock_path;
+	int opt;
 	pthread_t accepter_t;
+	struct sigaction act;
+
+	/* Set option */
+	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
+		switch (opt) {
+		case 'd':
+			sock_path = optarg;
+			break;
+		case 'v':
+			server_showVersion();
+		case 'h':
+		case '?':
+		default:
+			server_showHelp();
+			break;
+		}
+	}
+	if (sock_path == NULL) {
+		server_showHelp();
+		return EXIT_FAILURE;
+	}
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
@@ -178,13 +181,13 @@ main(int argc, char* argv[])
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
-	set_opt(argc, argv);
-	if (sock_path == NULL) {
-		show_help();
-		return 1;
-	}
+	/* Init pool */
+	thpool = thpool_init(SERVER_POOL_SIZE);
 
-	/* Initialization */
+	/* Init semaphore */
+	sem_init(&server_shouldDie, 0, 0);
+
+	/* Initialization socket stuffs */
 	printf("\r[SYSTEM]Init...\n");
 	TRY(cnct_Init(AF_LOCAL, sock_path));
 
@@ -194,21 +197,19 @@ main(int argc, char* argv[])
 	printf("\r[SYSTEM]Listening...\n");
 	TRY(cnct_Listen(LISTEN_BACKLOG));
 
-	/* Init pool */
-	thpool = thpool_init(SERVER_POOL_SIZE);
+	/* Server on then wait for death... */
+	pthread_create(&accepter_t, NULL, thread_accepter, NULL);
+	sem_wait(&server_shouldDie);
 
-	/* Server on */
-	pthread_create(&accepter_t, NULL, accepter, NULL);
-
-	while (server_is_running);
-
+	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
 
-	/* Quit */
+	thpool_destroy(thpool);
+	sem_destroy(&server_shouldDie);
+
 	printf("\r[SYSTEM]Quit...\n");
 	TRY(cnct_Quit());
 	TRY(cnct_Remove());
-	thpool_destroy(thpool);
 
 	return EXIT_SUCCESS;
 }

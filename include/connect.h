@@ -29,6 +29,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define CONNECT_MAX_MSG_SIZE 150
+
 int cnct_Init(int domain, char* sockPath);
 int cnct_Remove();
 int cnct_Quit();
