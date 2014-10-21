@@ -95,6 +95,7 @@ set_opt(int argc, char* argv[])
 	}
 }
 
+/* ===================== Thread functions ===================== */
 void*
 client_handler(void* args)
 {
@@ -157,12 +158,14 @@ accepter(void* args)
 	return NULL;
 }
 
+/* ===================== Signal handler ===================== */
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
 	server_is_running = false;
 }
 
+/* ===================== Main function ===================== */
 int
 main(int argc, char* argv[])
 {

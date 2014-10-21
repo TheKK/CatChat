@@ -37,6 +37,15 @@ cnct_Init(int domain, char* sockPath)
 }
 
 int
+cnct_Remove()
+{
+	if (remove(my_addr.sun_path) == -1)
+		return -1;
+
+	return 0;
+}
+
+int
 cnct_Quit()
 {
 	if (close(my_fd) == -1)
@@ -91,15 +100,6 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 		return -1;
 
 	return peer_fd;
-}
-
-int
-cnct_Remove()
-{
-	if (remove(my_addr.sun_path) == -1)
-		return -1;
-
-	return 0;
 }
 
 int

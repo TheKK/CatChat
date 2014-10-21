@@ -29,15 +29,15 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#define MAX_TEXT_SIZE 150
-
 int cnct_Init(int domain, char* sockPath);
+int cnct_Remove();
 int cnct_Quit();
+
 int cnct_Bind();
 int cnct_Connect();
 int cnct_Listen(int backlog);
 int cnct_Accept(struct sockaddr* addr, socklen_t* addr_len);
-int cnct_Remove();
+
 int cnct_SendMsg(int fd, char* msg);
 int test_send(int fd, char* msg);
 int cnct_RecvMsg(int fd, char* buff);

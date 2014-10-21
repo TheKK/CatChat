@@ -98,6 +98,7 @@ do_cmd(char* cmd)
 		printf("[SYSTEM] Command %s not found\n", cmd);
 }
 
+/* ===================== Thread functions ===================== */
 void*
 sender(void* args)
 {
@@ -147,6 +148,7 @@ receiver(void* args)
 	return NULL;
 }
 
+/* ===================== Signal handler ===================== */
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
@@ -159,6 +161,7 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 	printf("\r[SYSTEM]Use \":q<enter>\" to exit\n");
 }
 
+/* ===================== Main function ===================== */
 int
 main(int argc, char* argv[])
 {
