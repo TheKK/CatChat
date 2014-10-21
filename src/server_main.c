@@ -144,6 +144,7 @@ thread_accepter(void* args)
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
+	sem_post(&server_shouldDie);
 }
 
 /* ===================== Main function ===================== */
@@ -177,7 +178,7 @@ main(int argc, char* argv[])
 
 	/* Setup signal handler */
 	act.sa_sigaction = sig_handler;
-	act.sa_flags = SA_SIGINFO;
+	act.sa_flags = SA_RESTART;
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
@@ -203,7 +204,6 @@ main(int argc, char* argv[])
 
 	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
-
 	thpool_destroy(thpool);
 	sem_destroy(&server_shouldDie);
 
