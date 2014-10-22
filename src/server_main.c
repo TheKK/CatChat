@@ -30,6 +30,7 @@
 #include <signal.h>
 
 #include "connect.h"
+#include "userlist.h"
 
 /*
  * C-Thread-Pool
@@ -42,7 +43,7 @@
 
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
-#define SERVER_POOL_SIZE 3
+#define MAX_USER_COUNT 2
 
 #define TRY(cmd); \
 	do { \
@@ -54,15 +55,14 @@
 
 /* ===================== Global variables ===================== */
 static sem_t server_shouldDie;
-struct thpool_t* thpool;
+static pthread_mutex_t sendMutex = PTHREAD_MUTEX_INITIALIZER;
+static thpool_t* thpool;
+static userlist_list_t* userlist;
 
 struct job_args
 {
 	int fd;
 };
-
-/* ===================== Prototypes ===================== */
-void sig_handler(int signum, siginfo_t* info, void* ptr);
 
 /* ===================== Functions ===================== */
 void
@@ -77,25 +77,36 @@ server_showHelp()
 	printf("chatchat server: [-d socket dir][-v version][-h help]\n");
 }
 
+void
+server_setNewUser(int fd, char name[USERLIST_MAX_NAME_SIZE + 1])
+{
+	/* Tell client that I hear his/her call */
+	cnct_SendMsg(fd, "boo");
+
+	/* Receive name from client */
+	cnct_RecvMsg(fd, name);
+	printf("\r[INFO]client %s connected: peer_fd = %d\n", name, fd);
+
+	userlist_add(userlist, fd, name);
+}
+
 /* ===================== Thread functions ===================== */
 void*
 thread_clientHandler(void* args)
 {
 	/* TODO: User char pointer rather array of char */
-	char name[20];
+	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
 	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
 	int flag;
-	int peer_fd;
+	int client_fd;
 
-	peer_fd = ((struct job_args*)args)->fd;
+	client_fd = ((struct job_args*)args)->fd;
 
-	/* Receive name from client */
-	cnct_RecvMsg(peer_fd, name);
-	printf("\r[INFO]client %s connected: peer_fd = %d\n", name, peer_fd);
+	server_setNewUser(client_fd, name);
 
 	while (1) {
-		flag = cnct_RecvMsg(peer_fd, recvMsg);
+		flag = cnct_RecvMsg(client_fd, recvMsg);
 
 		/* Check error */
 		if (flag == -1) {
@@ -103,7 +114,7 @@ thread_clientHandler(void* args)
 			break;
 		} else if (flag == 0) {
 			printf("\r[INFO]client disconnected: fd = %d\n",
-			       peer_fd);
+			       client_fd);
 			break;
 		}
 
@@ -114,14 +125,18 @@ thread_clientHandler(void* args)
 			break;
 		}
 
-		memset(sendMsg, 0, sizeof(sendMsg));
-		strcat(sendMsg, name);
-		strcat(sendMsg, " say: ");
-		strcat(sendMsg, recvMsg);
-		cnct_SendMsg(peer_fd, sendMsg);
 		printf("\r[MSG]%s (fd = %d) said: %s\n",
-		       name, peer_fd, sendMsg);
+		       name, client_fd, recvMsg);
+
+		int i;
+		for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
+			sprintf(sendMsg,"%s say: %s", name, recvMsg);
+			cnct_SendMsg(userlist_getFd(userlist, i), sendMsg);
+		}
 	}
+
+	userlist_remove(userlist, userlist_findByFd(userlist, client_fd));
+	close(client_fd);
 
 	return NULL;
 }
@@ -190,8 +205,9 @@ main(int argc, char* argv[])
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
-	/* Init pool */
-	thpool = thpool_init(SERVER_POOL_SIZE);
+	/* Init pool and user list */
+	thpool = thpool_init(MAX_USER_COUNT);
+	userlist = userlist_create(MAX_USER_COUNT);
 
 	/* Init semaphore */
 	sem_init(&server_shouldDie, 0, 0);
@@ -213,6 +229,8 @@ main(int argc, char* argv[])
 	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
 	thpool_destroy(thpool);
+	userlist_destroy(userlist);
+	pthread_mutex_destroy(&sendMutex);
 	sem_destroy(&server_shouldDie);
 
 	printf("\r[SYSTEM]Quit...\n");

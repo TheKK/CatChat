@@ -84,7 +84,10 @@ cilent_doCmd(char* cmd)
 void*
 thread_sender(void* args)
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE + 1];
+
+	/* Wait for server */
+	cnct_RecvMsg(cnct_Getfd(), msg);
 
 	/* Tell server you name */
 	printf("[SYSTEM]What is you name: ");
@@ -95,7 +98,6 @@ thread_sender(void* args)
 	while (1) {
 		printf(">>");
 
-		memset(msg, 0, CONNECT_MAX_MSG_SIZE);
 		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
 		remove_next_line_symbol(msg);
 
