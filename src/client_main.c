@@ -32,17 +32,29 @@
 #include "connect.h"
 
 /* ===================== Macros ===================== */
-#define TRY(cmd); \
+#define TRY_OR_EXIT(cmd); \
 	do { \
-		if (cmd == -1) { \
+		if (cmd != 0) { \
 			perror(#cmd); \
 			exit(EXIT_FAILURE); \
 		} \
 	} while(0);
 
+#define TRY_OR_RETURN(cmd); \
+	do { \
+		if (cmd != 0) { \
+			perror(#cmd); \
+			return -1; \
+		} \
+	} while(0);
+
 /* ===================== Global variables ===================== */
 char* sock_path;
+pthread_t sender_t, receiver_t;
 sem_t client_shouldDie;
+
+/* ===================== Prototypes ===================== */
+void sig_handler(int signum, siginfo_t* info, void* ptr);
 
 /* ===================== Functions ===================== */
 void
@@ -55,6 +67,63 @@ void
 client_showHelp()
 {
 	printf("chatchat client: [-d socket dir][-v version][-h help]\n");
+}
+
+void
+client_getopt(int argc, char* argv[])
+{
+	int opt;
+
+	while ((opt = getopt(argc, argv, "d:p:vh")) != -1) {
+		switch (opt) {
+		case 'd':
+			sock_path = optarg;
+			break;
+		case 'p':
+			printf("WIP\n");
+			break;
+		case 'v':
+			client_showVersion();
+		case 'h':
+		case '?':
+		default:
+			client_showHelp();
+			break;
+		}
+	}
+}
+
+int
+client_init()
+{
+	struct sigaction act;
+
+	/* Setup signal handler */
+	act.sa_sigaction = sig_handler;
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGTERM, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGPIPE, &act, NULL);
+
+	/* Init semaphore */
+	TRY_OR_RETURN(sem_init(&client_shouldDie, 0, 0));
+
+	/* Initialize socket stuffs */
+	printf("\r[SYSTEM]Init...\n");
+	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
+
+	return 0;
+}
+
+void
+client_quit()
+{
+	pthread_cancel(sender_t);
+	pthread_cancel(receiver_t);
+	sem_destroy(&client_shouldDie);
+
+	printf("\r[SYSTEM]Quit...\n");
+	TRY_OR_EXIT(cnct_Quit());
 }
 
 /* TODO maybe place this to other file */
@@ -103,11 +172,12 @@ thread_sender(void* args)
 
 		if (msg[0] == ':') /* Is command */
 			cilent_doCmd(msg + 1);
-		else if (msg[0] == '\0') /* No text */
-			continue;
-		else {
-			TRY(cnct_SendMsg(cnct_Getfd(), msg));
-		}
+		else if (msg[0] != '\0') /* Not empty text */
+			if (cnct_SendMsg(cnct_Getfd(), msg) < 0) {
+				perror("cnct_SendMsg()");
+				sem_post(&client_shouldDie);
+				pthread_exit(NULL);
+			}
 	}
 
 	return  NULL;
@@ -146,7 +216,7 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 
 	if (signum == SIGPIPE) {
 		printf("\r[SYSTEM]Disconnected...\n");
-		TRY(cnct_Quit());
+		TRY_OR_EXIT(cnct_Quit());
 		exit(EXIT_FAILURE);
 	}
 
@@ -163,62 +233,25 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
-	struct sigaction act;
-	pthread_t sender_t, receiver_t;
-	int opt;
-
-	/* Set options */
-	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
-		switch (opt) {
-		case 'd':
-			sock_path = optarg;
-			break;
-		case 'v':
-			client_showVersion();
-		case 'h':
-		case '?':
-		default:
-			client_showHelp();
-			break;
-		}
-	}
+	client_getopt(argc, argv);
 	if (sock_path == NULL) {
 		client_showHelp();
 		return 1;
 	}
 
-	/* Setup signal handler */
-	act.sa_sigaction = sig_handler;
-	act.sa_flags = SA_RESTART;
-	sigaction(SIGTERM, &act, NULL);
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGPIPE, &act, NULL);
-
-	/* Init semaphore */
-	sem_init(&client_shouldDie, 0, 0);
-
-	/* Initialize socket stuffs */
-	printf("\r[SYSTEM]Init...\n");
-	TRY(cnct_Init(AF_LOCAL, sock_path));
+	TRY_OR_EXIT(client_init());
 
 	printf("\r[SYSTEM]Connecting...\n");
-	TRY(cnct_Connect());
+	TRY_OR_EXIT(cnct_Connect());
 
 	/* Connected  then wait for death... */
 	printf("\r[SYSTEM]Connected!!\n");
 	pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
 	pthread_create(&receiver_t, NULL, (void*) thread_receiver, NULL);
-
 	sem_wait(&client_shouldDie);
 
 	/* Clean these mess and quit */
-	pthread_cancel(sender_t);
-	pthread_cancel(receiver_t);
-	sem_destroy(&client_shouldDie);
-
-	printf("\r[SYSTEM]Quit...\n");
-	TRY(cnct_Quit());
-
+	client_quit();
 
 	return EXIT_SUCCESS;
 }

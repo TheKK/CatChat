@@ -45,7 +45,7 @@
 #define LISTEN_BACKLOG 5
 #define MAX_USER_COUNT 2
 
-#define TRY(cmd); \
+#define TRY_OR_EXIT(cmd); \
 	do { \
 		if (cmd == -1) { \
 			perror(#cmd); \
@@ -53,9 +53,19 @@
 		} \
 	} while(0);
 
+#define TRY_OR_RETURN(cmd); \
+	do { \
+		if (cmd != 0) { \
+			perror(#cmd); \
+			return -1; \
+		} \
+	} while(0);
+
 /* ===================== Global variables ===================== */
-static sem_t server_shouldDie;
+char* sock_path;
+pthread_t accepter_t;
 static pthread_mutex_t sendMutex = PTHREAD_MUTEX_INITIALIZER;
+static sem_t server_shouldDie;
 static thpool_t* thpool;
 static userlist_list_t* userlist;
 
@@ -63,6 +73,9 @@ struct job_args
 {
 	int fd;
 };
+
+/* ===================== Prototypes ===================== */
+void sig_handler(int signum, siginfo_t* info, void* ptr);
 
 /* ===================== Functions ===================== */
 void
@@ -75,6 +88,73 @@ void
 server_showHelp()
 {
 	printf("chatchat server: [-d socket dir][-v version][-h help]\n");
+}
+
+void
+server_getopt(int argc, char* argv[])
+{
+	int opt;
+
+	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
+		switch (opt) {
+		case 'd':
+			sock_path = optarg;
+			break;
+		case 'v':
+			server_showVersion();
+		case 'h':
+		case '?':
+		default:
+			server_showHelp();
+			break;
+		}
+	}
+}
+
+int
+server_init()
+{
+	struct sigaction act;
+
+	/* Setup signal handler */
+	act.sa_sigaction = sig_handler;
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGTERM, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+
+	/* Init pool and user list */
+	thpool = thpool_init(MAX_USER_COUNT);
+	userlist = userlist_create(MAX_USER_COUNT);
+
+	/* Init semaphore */
+	TRY_OR_RETURN(sem_init(&server_shouldDie, 0, 0));
+
+	/* Initialization socket stuffs */
+	printf("\r[SYSTEM]Init...\n");
+	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
+
+	printf("\r[SYSTEM]Binding...\n");
+	TRY_OR_RETURN(cnct_Bind());
+
+	printf("\r[SYSTEM]Listening...\n");
+	TRY_OR_RETURN(cnct_Listen(LISTEN_BACKLOG));
+
+	return 0;
+}
+
+void
+server_quit()
+{
+	/* Clean these mess and quit */
+	pthread_cancel(accepter_t);
+	thpool_destroy(thpool);
+	userlist_destroy(userlist);
+	pthread_mutex_destroy(&sendMutex);
+	sem_destroy(&server_shouldDie);
+
+	printf("\r[SYSTEM]Quit...\n");
+	TRY_OR_EXIT(cnct_Quit());
+	TRY_OR_EXIT(cnct_Remove());
 }
 
 void
@@ -174,68 +254,19 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
-	char* sock_path;
-	int opt;
-	pthread_t accepter_t;
-	struct sigaction act;
-
-	/* Set option */
-	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
-		switch (opt) {
-		case 'd':
-			sock_path = optarg;
-			break;
-		case 'v':
-			server_showVersion();
-		case 'h':
-		case '?':
-		default:
-			server_showHelp();
-			break;
-		}
-	}
+	server_getopt(argc, argv);
 	if (sock_path == NULL) {
 		server_showHelp();
 		return EXIT_FAILURE;
 	}
 
-	/* Setup signal handler */
-	act.sa_sigaction = sig_handler;
-	act.sa_flags = SA_RESTART;
-	sigaction(SIGTERM, &act, NULL);
-	sigaction(SIGINT, &act, NULL);
-
-	/* Init pool and user list */
-	thpool = thpool_init(MAX_USER_COUNT);
-	userlist = userlist_create(MAX_USER_COUNT);
-
-	/* Init semaphore */
-	sem_init(&server_shouldDie, 0, 0);
-
-	/* Initialization socket stuffs */
-	printf("\r[SYSTEM]Init...\n");
-	TRY(cnct_Init(AF_LOCAL, sock_path));
-
-	printf("\r[SYSTEM]Binding...\n");
-	TRY(cnct_Bind());
-
-	printf("\r[SYSTEM]Listening...\n");
-	TRY(cnct_Listen(LISTEN_BACKLOG));
+	TRY_OR_EXIT(server_init());
 
 	/* Server on then wait for death... */
 	pthread_create(&accepter_t, NULL, thread_accepter, NULL);
 	sem_wait(&server_shouldDie);
 
-	/* Clean these mess and quit */
-	pthread_cancel(accepter_t);
-	thpool_destroy(thpool);
-	userlist_destroy(userlist);
-	pthread_mutex_destroy(&sendMutex);
-	sem_destroy(&server_shouldDie);
-
-	printf("\r[SYSTEM]Quit...\n");
-	TRY(cnct_Quit());
-	TRY(cnct_Remove());
+	server_quit();
 
 	return EXIT_SUCCESS;
 }
