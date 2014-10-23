@@ -147,7 +147,7 @@ server_quit()
 {
 	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
-	thpool_destroy(thpool);
+	thpool_forceDestroy(thpool);
 	userlist_destroy(userlist);
 	pthread_mutex_destroy(&sendMutex);
 	sem_destroy(&server_shouldDie);
@@ -160,9 +160,6 @@ server_quit()
 void
 server_setNewUser(int fd, char name[USERLIST_MAX_NAME_SIZE + 1])
 {
-	/* Tell client that I hear his/her call */
-	cnct_SendMsg(fd, "boo");
-
 	/* Receive name from client */
 	cnct_RecvMsg(fd, name);
 	printf("\r[INFO]client %s connected: peer_fd = %d\n", name, fd);
@@ -178,8 +175,9 @@ thread_clientHandler(void* args)
 	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
 	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
-	int flag;
 	int client_fd;
+	int flag;
+	int i;
 
 	client_fd = ((struct job_args*)args)->fd;
 
@@ -205,10 +203,23 @@ thread_clientHandler(void* args)
 			break;
 		}
 
+		/* Command from client */
+		if (strcmp(recvMsg, "/users") == 0) {
+			cnct_SendMsg(client_fd, "====== User list ======");
+			for (i = 0; i < userlist_getCurrentSize(userlist);
+			     i++) {
+				sprintf(sendMsg,"%5i %s",
+					i,
+					userlist_getName(userlist, i));
+				cnct_SendMsg(client_fd, sendMsg);
+			}
+			cnct_SendMsg(client_fd, "====== End ======");
+			continue;
+		}
+
 		printf("\r[MSG]%s (fd = %d) said: %s\n",
 		       name, client_fd, recvMsg);
 
-		int i;
 		for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 			sprintf(sendMsg,"%s say: %s", name, recvMsg);
 			cnct_SendMsg(userlist_getFd(userlist, i), sendMsg);
@@ -229,14 +240,23 @@ thread_accepter(void* args)
 
 	while (1) {
 		peer_fd = cnct_Accept((struct sockaddr*) NULL, NULL);
+
 		if (peer_fd == -1) {
 			perror("cnct_Accept()");
 			break;
 		}
 		else {
-			job_args.fd = peer_fd;
-			thpool_add_work(thpool,
-					thread_clientHandler, (void*)&job_args);
+			if (userlist_isFull(userlist)) {
+				printf("[SYSTEM] FULL\n");
+				cnct_SendMsg(peer_fd, "no");
+				close(peer_fd);
+			} else {
+				/* Tell client that I hear his/her call */
+				cnct_SendMsg(peer_fd, "boo");
+				job_args.fd = peer_fd;
+				thpool_add_work(thpool, thread_clientHandler,
+						(void*)&job_args);
+			}
 		}
 	}
 

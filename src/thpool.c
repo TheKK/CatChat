@@ -179,6 +179,40 @@ void thpool_destroy(thpool_t* tp_p){
 }
 
 
+/* Force destroy the threadpool */
+void thpool_forceDestroy(thpool_t* tp_p){
+	int t;
+	
+	/* End each thread's infinite loop */
+	thpool_keepalive=0; 
+
+	/* Awake idle threads waiting at semaphore */
+	for (t=0; t<(tp_p->threadsN); t++){
+		if (sem_post(tp_p->jobqueue->queueSem)){
+			fprintf(stderr, "thpool_destroy(): Could not bypass sem_wait()\n");
+		}
+	}
+
+	/* Kill semaphore */
+	if (sem_destroy(tp_p->jobqueue->queueSem)!=0){
+		fprintf(stderr, "thpool_destroy(): Could not destroy semaphore\n");
+	}
+	
+	/* Wait for threads to finish */
+	for (t=0; t<(tp_p->threadsN); t++){
+		pthread_cancel(tp_p->threads[t]);
+	}
+	
+	thpool_jobqueue_empty(tp_p);
+	
+	/* Dealloc */
+	free(tp_p->threads);                                                   /* DEALLOC threads             */
+	free(tp_p->jobqueue->queueSem);                                        /* DEALLOC job queue semaphore */
+	free(tp_p->jobqueue);                                                  /* DEALLOC job queue           */
+	free(tp_p);                                                            /* DEALLOC thread pool         */
+}
+
+
 
 /* =================== JOB QUEUE OPERATIONS ===================== */
 

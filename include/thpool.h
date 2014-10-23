@@ -165,6 +165,7 @@ int thpool_add_work(thpool_t* tp_p, void *(*function_p)(void*), void* arg_p);
  * @param threadpool a pointer to the threadpool structure you want to destroy
  */
 void thpool_destroy(thpool_t* tp_p);
+void thpool_forceDestroy(thpool_t* tp_p);
 
 
 

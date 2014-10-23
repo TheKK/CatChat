@@ -50,10 +50,11 @@
 
 /* ===================== Global variables ===================== */
 char* sock_path;
-pthread_t sender_t, receiver_t;
+pthread_t sender_t;
 sem_t client_shouldDie;
 
 /* ===================== Prototypes ===================== */
+void* thread_sender(void* args);
 void sig_handler(int signum, siginfo_t* info, void* ptr);
 
 /* ===================== Functions ===================== */
@@ -116,10 +117,42 @@ client_init()
 }
 
 void
+client_receiver()
+{
+	char msg[CONNECT_MAX_MSG_SIZE + 1];
+	int flag;
+
+	/* Wait for server */
+	cnct_RecvMsg(cnct_Getfd(), msg);
+	if (strcmp(msg, "boo") == 0)
+		pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
+	else {
+		printf("Server refuse connection\n");
+		return;
+	}
+
+	while (1) {
+		flag = cnct_RecvMsg(cnct_Getfd(), msg);
+
+		if (flag == -1) {
+			perror("cnct_RecvMsg()");
+			break;
+		} else if (flag == 0) { /* Disconnected */
+			perror("cnct_RecvMsg()");
+			break;
+		} else {
+			printf("\r%s\n", msg);
+		}
+	}
+
+	pthread_cancel(sender_t);
+
+	return;
+}
+
+void
 client_quit()
 {
-	pthread_cancel(sender_t);
-	pthread_cancel(receiver_t);
 	sem_destroy(&client_shouldDie);
 
 	printf("\r[SYSTEM]Quit...\n");
@@ -155,9 +188,6 @@ thread_sender(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE + 1];
 
-	/* Wait for server */
-	cnct_RecvMsg(cnct_Getfd(), msg);
-
 	/* Tell server you name */
 	printf("[SYSTEM]What is you name: ");
 	fgets(msg, 10, stdin);
@@ -183,30 +213,6 @@ thread_sender(void* args)
 	return  NULL;
 }
 
-void*
-thread_receiver(void* args)
-{
-	char msg[CONNECT_MAX_MSG_SIZE];
-	int flag;
-
-	while (1) {
-		flag = cnct_RecvMsg(cnct_Getfd(), msg);
-
-		if (flag == -1) {
-			perror("cnct_RecvMsg()");
-			sem_post(&client_shouldDie);
-			break;
-		} else if (flag == 0) { /* Disconnected */
-			perror("cnct_RecvMsg()");
-			sem_post(&client_shouldDie);
-			break;
-		}
-
-		printf("\r%s\n", msg);
-	}
-
-	return NULL;
-}
 
 /* ===================== Signal handler ===================== */
 void
@@ -245,10 +251,7 @@ main(int argc, char* argv[])
 	TRY_OR_EXIT(cnct_Connect());
 
 	/* Connected  then wait for death... */
-	printf("\r[SYSTEM]Connected!!\n");
-	pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
-	pthread_create(&receiver_t, NULL, (void*) thread_receiver, NULL);
-	sem_wait(&client_shouldDie);
+	client_receiver();
 
 	/* Clean these mess and quit */
 	client_quit();
