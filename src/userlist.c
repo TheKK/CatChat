@@ -85,7 +85,7 @@ void
 userlist_remove(userlist_list_t* list, int which)
 {
 	pthread_mutex_lock(&mutex);		/* LOCK */
-	assert((which >= 0) && (which <= list->maxSize));
+	assert((which >= 0));
 
 	list->head[which].fd = -1;
 	list->head[which].next = list->firstAvailable;

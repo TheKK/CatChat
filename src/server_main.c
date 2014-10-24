@@ -43,7 +43,7 @@
 
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
-#define MAX_USER_COUNT 2
+#define MAX_USER_COUNT 3
 
 #define TRY_OR_EXIT(cmd); \
 	do { \
