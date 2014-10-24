@@ -51,6 +51,7 @@
 
 /* ===================== Global variables ===================== */
 char* sock_path;
+char name[10];
 pthread_t sender_t, receiver_t;
 sem_t client_shouldDie;
 
@@ -141,6 +142,7 @@ client_getServerAnswer()
 	fgets(msg, 10, stdin);
 	remove_next_line_symbol(msg);
 	cnct_SendMsg(cnct_Getfd(), msg);
+	strncat(name, msg, sizeof(name));
 
 	return 1;
 }
@@ -190,9 +192,12 @@ thread_sender(void* args)
 
 
 	while (1) {
+		/* Show prefix */
+		/* FIXME: Cursor cant' locate after prefix symbol */
+		mvwprintw(input_win, 1, 1, " <%s> ", name);
+		wrefresh(input_win);
 
-		/*fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);*/
-		mvwgetstr(input_win, 1, 1, msg);
+		wgetstr(input_win, msg);
 		werase(input_win);
 		box(input_win, 0, 0);
 		wrefresh(input_win);
@@ -313,6 +318,9 @@ main(int argc, char* argv[])
 		sem_wait(&client_shouldDie);
 	}
 
+	/* Clean these mess and quit */
+	client_quit();
+
 	{
 		delwin(dialog_win);
 		delwin(dialog_pad);
@@ -321,8 +329,6 @@ main(int argc, char* argv[])
 		endwin();
 	}
 
-	/* Clean these mess and quit */
-	client_quit();
 
 	return EXIT_SUCCESS;
 }
