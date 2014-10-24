@@ -39,13 +39,16 @@ SERVER_OBJ = $(OUT_DIR)/server_main.o	\
 CLIENT_OBJ = $(OUT_DIR)/client_main.o	\
 	     $(OUT_DIR)/connect.o
 
+TEST_OBJ = $(OUT_DIR)/test.o		\
+
 # Libs flags
-LIB = -lpthread
+LIB = -lpthread -lncurses
 
 SERVER_OUT_EXE = server
 CLIENT_OUT_EXE = client
+TEST_OUT_EXT = test
 
-all: $(OBJ) $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE)
+all: $(OBJ) $(SERVER_OUT_EXE) $(CLIENT_OUT_EXE) $(TEST_OUT_EXT)
 	@echo "===========[[Everything done!!]]============"
 
 $(SERVER_OUT_EXE): $(SERVER_OBJ)
@@ -55,6 +58,10 @@ $(SERVER_OUT_EXE): $(SERVER_OBJ)
 $(CLIENT_OUT_EXE): $(CLIENT_OBJ)
 	@echo "    LD    " $(notdir $@)
 	@$(CXX) $(CLIENT_OBJ) $(CXXFLAG) $(LIB) -o $@
+
+$(TEST_OUT_EXT): $(TEST_OBJ)
+	@echo "    LD    " $(notdir $@)
+	@$(CXX) $(TEST_OBJ) $(CXXFLAG) $(LIB) -o $@
 
 $(OUT_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "    CC    " $(notdir $@)

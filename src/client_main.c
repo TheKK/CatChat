@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
+#include <ncurses.h>
 
 #include "connect.h"
 
@@ -53,8 +54,16 @@ char* sock_path;
 pthread_t sender_t, receiver_t;
 sem_t client_shouldDie;
 
+WINDOW* input_win;
+WINDOW* dialog_win;
+WINDOW* dialog_pad;
+int input_win_x, input_win_y, input_win_w, input_win_h;
+int dialog_win_x, dialog_win_y, dialog_win_w, dialog_win_h;
+int dialog_pad_x, dialog_pad_y, dialog_pad_w, dialog_pad_h;
+
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
+void remove_next_line_symbol(char* str);
 
 /* ===================== Functions ===================== */
 void
@@ -124,10 +133,16 @@ client_getServerAnswer()
 	char msg[10];
 	/* Wait for server */
 	cnct_RecvMsg(cnct_Getfd(), msg);
-	if (strcmp(msg, "boo") == 0)
-		return 1;
-	else
+	if (strcmp(msg, "boo") != 0)
 		return 0;
+
+	/* Tell server you name */
+	printf("[SYSTEM]What is you name: ");
+	fgets(msg, 10, stdin);
+	remove_next_line_symbol(msg);
+	cnct_SendMsg(cnct_Getfd(), msg);
+
+	return 1;
 }
 
 void
@@ -173,16 +188,15 @@ thread_sender(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE + 1];
 
-	/* Tell server you name */
-	printf("[SYSTEM]What is you name: ");
-	fgets(msg, 10, stdin);
-	remove_next_line_symbol(msg);
-	cnct_SendMsg(cnct_Getfd(), msg);
 
 	while (1) {
-		printf(">>");
 
-		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
+		/*fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);*/
+		mvwgetstr(input_win, 1, 1, msg);
+		werase(input_win);
+		box(input_win, 0, 0);
+		wrefresh(input_win);
+
 		remove_next_line_symbol(msg);
 
 		if (msg[0] == ':') /* Is command */
@@ -217,7 +231,9 @@ thread_receiver(void* args)
 			break;
 		}
 
-		printf("\r%s\n", msg);
+		/* printf("\r%s\n", msg); */
+		wprintw(dialog_pad, "%s\n", msg);
+		prefresh(dialog_pad, 0, 0, 1, 1, dialog_pad_h, dialog_pad_w);
 	}
 
 	return NULL;
@@ -244,6 +260,34 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 	}
 }
 
+void
+ninit()
+{
+		initscr();
+		refresh();
+
+		dialog_win = newwin(LINES - 3, COLS - 1, 0, 0);
+		box(dialog_win, 0, 0);
+		wrefresh(dialog_win);
+		getbegyx(dialog_win, dialog_win_y, dialog_win_x);
+		getmaxyx(dialog_win, dialog_win_h, dialog_win_w);
+
+		input_win = newwin(3, COLS - 1, LINES - 3, 0);
+		box(input_win, 0, 0);
+		wrefresh(input_win);
+		getbegyx(input_win, input_win_y, input_win_x);
+		getmaxyx(input_win, input_win_h, input_win_w);
+
+		dialog_pad_x = dialog_win_x + 1;
+		dialog_pad_y = dialog_win_y + 1;
+		dialog_pad_w = dialog_win_w - 2;
+		dialog_pad_h = dialog_win_h - 2;
+
+		dialog_pad = newpad(dialog_pad_h, dialog_pad_w);
+
+		prefresh(dialog_pad, 0, 0, 1, 1, dialog_pad_h, dialog_pad_w);
+}
+
 /* ===================== Main function ===================== */
 int
 main(int argc, char* argv[])
@@ -262,10 +306,19 @@ main(int argc, char* argv[])
 	/* Connected  then wait for death... */
 	printf("\r[SYSTEM]Connected!!\n");
 	if (client_getServerAnswer() == 1) {
+		ninit();
 		pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
 		pthread_create(&receiver_t, NULL, (void*) thread_receiver,
 			       NULL);
 		sem_wait(&client_shouldDie);
+	}
+
+	{
+		delwin(dialog_win);
+		delwin(dialog_pad);
+		delwin(input_win);
+
+		endwin();
 	}
 
 	/* Clean these mess and quit */
