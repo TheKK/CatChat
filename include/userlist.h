@@ -17,6 +17,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
+#ifndef USER_LIST_H
+#define USER_LIST_H
+
 /* ===================== Headers ===================== */
 #include <assert.h>
 #include <pthread.h>
@@ -58,3 +61,5 @@ userlist_info_t* userlist_findByName(userlist_list_t* list, const char* name);
 userlist_info_t* userlist_findByIndex(userlist_list_t* list, int index);
 
 int userlist_getCurrentSize(userlist_list_t* list);
+
+#endif	/* USER_LIST_H */

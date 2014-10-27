@@ -51,12 +51,14 @@ userlist_destroy(userlist_list_t* list)
 
 	pthread_mutex_lock(&mutex);		/* LOCK */
 	size = list->currentSize;
-	head = list->head;
-	next = list->head->next;
-	for (i = 0; i < size; i++) {
-		free(head);
-		head = next;
-		next = next->next;
+	if (size != 0) {
+		head = list->head;
+		next = list->head->next;
+		for (i = 0; i < size; i++) {
+			free(head);
+			head = next;
+			next = next->next;
+		}
 	}
 	pthread_mutex_unlock(&mutex);		/* UNLOCK */
 
