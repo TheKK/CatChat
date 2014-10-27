@@ -175,6 +175,7 @@ thread_clientHandler(void* args)
 	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
 	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
+	userlist_info_t* userInfo;
 	int client_fd;
 	int flag;
 	int i;
@@ -208,25 +209,27 @@ thread_clientHandler(void* args)
 			cnct_SendMsg(client_fd, "====== User list ======");
 			for (i = 0; i < userlist_getCurrentSize(userlist);
 			     i++) {
-				sprintf(sendMsg,"%5i %s",
-					i,
-					userlist_getName(userlist, i));
+				userInfo = userlist_findByIndex(userlist, i);
+				sprintf(sendMsg,"%5i %s", i, userInfo->name);
 				cnct_SendMsg(client_fd, sendMsg);
 			}
 			cnct_SendMsg(client_fd, "====== End ======");
 			continue;
 		}
 
+		/* Normal texts */
 		printf("\r[MSG]%s (fd = %d) said: %s\n",
 		       name, client_fd, recvMsg);
 
 		for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
+			userInfo = userlist_findByIndex(userlist, i);
+
 			sprintf(sendMsg,"%s say: %s", name, recvMsg);
-			cnct_SendMsg(userlist_getFd(userlist, i), sendMsg);
+			cnct_SendMsg(userInfo->fd, sendMsg);
 		}
 	}
 
-	userlist_remove(userlist, userlist_findByFd(userlist, client_fd));
+	userlist_remove(userlist, name);
 	close(client_fd);
 
 	return NULL;
@@ -241,22 +244,16 @@ thread_accepter(void* args)
 	while (1) {
 		peer_fd = cnct_Accept((struct sockaddr*) NULL, NULL);
 
+		/* Error */
 		if (peer_fd == -1) {
 			perror("cnct_Accept()");
 			break;
-		}
-		else {
-			if (userlist_isFull(userlist)) {
-				printf("[SYSTEM] FULL\n");
-				cnct_SendMsg(peer_fd, "no");
-				close(peer_fd);
-			} else {
-				/* Tell client that I hear his/her call */
-				cnct_SendMsg(peer_fd, "boo");
-				job_args.fd = peer_fd;
-				thpool_add_work(thpool, thread_clientHandler,
-						(void*)&job_args);
-			}
+		} else {
+			/* Tell client that I hear his/her call */
+			cnct_SendMsg(peer_fd, "boo");
+			job_args.fd = peer_fd;
+			thpool_add_work(thpool, thread_clientHandler,
+					(void*)&job_args);
 		}
 	}
 

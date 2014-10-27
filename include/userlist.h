@@ -31,35 +31,30 @@
 /* ===================== Global variables ===================== */
 typedef struct userlist_info_t
 {
+	char name[USERLIST_MAX_NAME_SIZE + 1];
 	int fd;
-	char name[USERLIST_MAX_NAME_SIZE];
+	int tid;
 	time_t loginTime;
 
 	struct userlist_info_t* next;
+	struct userlist_info_t* prev;
 }userlist_info_t;
 
 typedef struct userlist_list_t
 {
 	struct userlist_info_t* head;
-	struct userlist_info_t* firstAvailable;
-	int maxSize;
 	int currentSize;
 }userlist_list_t;
 
 /* ===================== Functions ===================== */
-userlist_list_t* userlist_create(int maxSize);
+userlist_list_t* userlist_create();
 void userlist_destroy(userlist_list_t* list);
 
 int userlist_add(userlist_list_t* list, int fd, const char* name);
-void userlist_remove(userlist_list_t* list, int which);
+void userlist_remove(userlist_list_t* list, const char* who);
 
-int userlist_findByFd(userlist_list_t* list, int fd);
-int userlist_findByName(userlist_list_t* list, const char* name);
+userlist_info_t* userlist_findByFd(userlist_list_t* list, int fd);
+userlist_info_t* userlist_findByName(userlist_list_t* list, const char* name);
+userlist_info_t* userlist_findByIndex(userlist_list_t* list, int index);
 
-char* userlist_getName(userlist_list_t* list, int which);
-int userlist_getFd(userlist_list_t* list, int which);
 int userlist_getCurrentSize(userlist_list_t* list);
-int userlist_getMaxSize(userlist_list_t* list);
-
-int userlist_isFull(userlist_list_t* list);
-int userlist_isUsed(userlist_list_t* list, int which);

@@ -24,11 +24,9 @@
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* ===================== Functions ===================== */
-
 userlist_list_t*
-userlist_create(int maxSize)
+userlist_create()
 {
-	int i;
 	userlist_list_t* tmpList;
 
 	tmpList = (userlist_list_t*)malloc(sizeof(userlist_list_t));
@@ -37,18 +35,7 @@ userlist_create(int maxSize)
 		return NULL;
 	}
 
-	tmpList->head = (userlist_info_t*)malloc(sizeof(userlist_info_t) *
-						 maxSize);
-	tmpList->firstAvailable = tmpList->head;
-	tmpList->maxSize = maxSize;
 	tmpList->currentSize = 0;
-
-	for (i = 0; i < maxSize - 1; i++) {
-		tmpList->head[i].next = &tmpList->head[i + 1];
-		tmpList->head[i].fd = -1;
-	}
-	tmpList->head[maxSize - 1].next = NULL;
-	tmpList->head[maxSize - 1].fd = -1;
 
 	return tmpList;
 }
@@ -56,24 +43,54 @@ userlist_create(int maxSize)
 void
 userlist_destroy(userlist_list_t* list)
 {
-	free(list->head);
+	assert(list != NULL);
+
+	int i, size;
+	userlist_info_t* head;
+	userlist_info_t* next;
+
+	pthread_mutex_lock(&mutex);		/* LOCK */
+	size = list->currentSize;
+	head = list->head;
+	next = list->head->next;
+	for (i = 0; i < size; i++) {
+		free(head);
+		head = next;
+		next = next->next;
+	}
+	pthread_mutex_unlock(&mutex);		/* UNLOCK */
+
+	free(list);
 	pthread_mutex_destroy(&mutex);
 }
 
 int
 userlist_add(userlist_list_t* list, int fd, const char* name)
 {
-	pthread_mutex_lock(&mutex);		/* LOCK */
 	assert(list != NULL);
 
-	if (list->firstAvailable == NULL)
-		return -1;
+	userlist_info_t* tmp;
 
-	strncpy(list->firstAvailable->name, name,
-		USERLIST_MAX_NAME_SIZE);
-	list->firstAvailable->fd = fd;
-	list->firstAvailable->loginTime = time(NULL);
-	list->firstAvailable = list->firstAvailable->next;
+	/* New user info chunck */
+	tmp = (userlist_info_t*)malloc(sizeof(userlist_info_t));
+	strncat(tmp->name, name, USERLIST_MAX_NAME_SIZE);
+	tmp->fd = fd;
+	tmp->tid = 0;	/* TODO finish this */
+	tmp->loginTime = time(NULL);
+	tmp->next = tmp;
+	tmp->prev = tmp;
+
+	pthread_mutex_lock(&mutex);		/* LOCK */
+	switch (list->currentSize) {
+	case 0:
+		list->head = tmp;
+		break;
+	default:
+		tmp->next = list->head;
+		list->head->prev = tmp;
+		list->head = tmp;
+		break;
+	}
 
 	list->currentSize++;
 	pthread_mutex_unlock(&mutex);		/* UNLOCK */
@@ -82,59 +99,76 @@ userlist_add(userlist_list_t* list, int fd, const char* name)
 }
 
 void
-userlist_remove(userlist_list_t* list, int which)
+userlist_remove(userlist_list_t* list, const char* who)
 {
-	pthread_mutex_lock(&mutex);		/* LOCK */
-	assert((which >= 0));
+	assert(list != NULL);
 
-	list->head[which].fd = -1;
-	list->head[which].next = list->firstAvailable;
-	list->firstAvailable = &list->head[which];
+	userlist_info_t* seek;
+
+	pthread_mutex_lock(&mutex);		/* LOCK */
+	for (seek = list->head; seek != NULL; seek = seek->next) {
+		if (strcmp(seek->name, who) == 0) {
+			if (seek == list->head)
+				list->head = seek->next;
+			if (seek->next)
+				seek->next->prev = seek->prev;
+			if (seek->prev)
+				seek->prev->next = seek->next;
+			free(seek);
+			break;
+		}
+	}
 	list->currentSize--;
 	pthread_mutex_unlock(&mutex);		/* UNLOCK */
 }
 
-/* Not sure if this can be thread safe */
-int
+/* FIXME Not sure if this can be thread safe */
+userlist_info_t*
 userlist_findByFd(userlist_list_t* list, int fd)
 {
-	int i;
+	assert(list != NULL);
 
-	for (i = 0; i < list->currentSize; i++) {
-		if (fd == list->head[i].fd)
-			return i;
+	userlist_info_t* seek;
+
+	for (seek = list->head; seek != NULL; seek = seek->next) {
+		if (seek->fd == fd)
+			return seek;
 	}
 
 	/* Not found */
-	return -1;
+	return NULL;
 }
 
-/* Not sure if this can be thread safe */
-int
+/* FIXME Not sure if this can be thread safe */
+userlist_info_t*
 userlist_findByName(userlist_list_t* list, const char* name)
 {
-	int i;
+	assert(list != NULL);
 
-	for (i = 0; i < list->currentSize; i++) {
-		if (strcmp(name, list->head[i].name) == 0)
-			return i;
+	userlist_info_t* seek;
+
+	for (seek = list->head; seek != NULL; seek = seek->next) {
+		if (strcmp(seek->name, name) == 0)
+			return seek;
 	}
 
 	/* Not found */
-	return -1;
+	return NULL;
 }
 
-/* Not sure if this can be thread safe */
-char*
-userlist_getName(userlist_list_t* list, int which)
+userlist_info_t*
+userlist_findByIndex(userlist_list_t* list, int index)
 {
-	return (char*) &(list->head[which].name);
-}
+	assert(list != NULL);
 
-int
-userlist_getFd(userlist_list_t* list, int which)
-{
-	return list->head[which].fd;
+	int i;
+	userlist_info_t* toReturn;
+
+	for (i = 0, toReturn = list->head;
+	     (i < index) && (toReturn != NULL);
+	     i++, toReturn = toReturn->next);
+
+	return toReturn;
 }
 
 /* Not sure if this can be thread safe */
@@ -142,22 +176,4 @@ int
 userlist_getCurrentSize(userlist_list_t* list)
 {
 	return list->currentSize;
-}
-
-int
-userlist_getMaxSize(userlist_list_t* list)
-{
-	return list->maxSize;
-}
-
-int
-userlist_isFull(userlist_list_t* list)
-{
-	return (list->maxSize == list->currentSize);
-}
-
-int
-userlist_isUsed(userlist_list_t* list, int which)
-{
-	return (list->head[which].fd != -1);
 }
