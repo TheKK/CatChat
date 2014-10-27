@@ -31,6 +31,7 @@
 
 #include "connect.h"
 #include "userlist.h"
+#include "mediaManager.h"
 
 /*
  * C-Thread-Pool
@@ -122,9 +123,20 @@ server_init()
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
-	/* Init pool and user list */
+	/* Init pool and user list and other stuffs */
 	thpool = thpool_init(MAX_USER_COUNT);
+	if (!thpool) {
+		fprintf(stderr, "thpool_init() falied\n");
+		return 1;
+	}
+
 	userlist = userlist_create(MAX_USER_COUNT);
+	if (!userlist) {
+		fprintf(stderr, "userlist_create() falied\n");
+		return 1;
+	}
+
+	TRY_OR_RETURN(mdManager_init(".server"));
 
 	/* Init semaphore */
 	TRY_OR_RETURN(sem_init(&server_shouldDie, 0, 0));
@@ -147,6 +159,7 @@ server_quit()
 {
 	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
+	mdManager_quit();
 	thpool_forceDestroy(thpool);
 	userlist_destroy(userlist);
 	pthread_mutex_destroy(&sendMutex);
