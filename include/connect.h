@@ -20,6 +20,7 @@
 #ifndef CONNECT_H
 #define CONNECT_H
 
+/* ===================== Headers ===================== */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -29,8 +30,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+/* ===================== Macros ===================== */
 #define CONNECT_MAX_MSG_SIZE 150
 
+/* ===================== Functions ===================== */
 int cnct_Init(int domain, char* sockPath);
 int cnct_Remove();
 int cnct_Quit();
