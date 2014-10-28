@@ -58,6 +58,12 @@ void userlist_remove(userlist_list_t* list, const char* who);
 
 userlist_info_t* userlist_findByFd(userlist_list_t* list, int fd);
 userlist_info_t* userlist_findByName(userlist_list_t* list, const char* name);
+/* 
+ * WARNNING!
+ * since userlist use linked list, I don't guarantee the index of
+ * a certain user will always the same. This function is only for query all
+ * elements in this list.
+ */
 userlist_info_t* userlist_findByIndex(userlist_list_t* list, int index);
 
 int userlist_getCurrentSize(userlist_list_t* list);

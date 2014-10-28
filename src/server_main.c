@@ -44,7 +44,6 @@
 
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
-#define MAX_USER_COUNT 3
 
 #define TRY_OR_EXIT(cmd); \
 	do { \
@@ -63,12 +62,13 @@
 	} while(0);
 
 /* ===================== Global variables ===================== */
-char* sock_path;
-pthread_t accepter_t;
+static char* sock_path;
+static pthread_t accepter_t;
 static pthread_mutex_t sendMutex = PTHREAD_MUTEX_INITIALIZER;
 static sem_t server_shouldDie;
 static thpool_t* thpool;
 static userlist_list_t* userlist;
+static int max_user_count;
 
 struct job_args
 {
@@ -88,7 +88,8 @@ server_showVersion()
 void
 server_showHelp()
 {
-	printf("chatchat server: [-d socket dir][-v version][-h help]\n");
+	printf("chatchat server: [-d socket dir]\
+	       [-m max client number][-v version][-h help]\n");
 }
 
 void
@@ -96,10 +97,17 @@ server_getopt(int argc, char* argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "d:vh")) != -1) {
+	/* Default */
+	sock_path = NULL;
+	max_user_count = 2;
+
+	while ((opt = getopt(argc, argv, "d:m:vh")) != -1) {
 		switch (opt) {
 		case 'd':
 			sock_path = optarg;
+			break;
+		case 'm':
+			max_user_count = atoi(optarg);
 			break;
 		case 'v':
 			server_showVersion();
@@ -124,13 +132,13 @@ server_init()
 	sigaction(SIGINT, &act, NULL);
 
 	/* Init pool and user list and other stuffs */
-	thpool = thpool_init(MAX_USER_COUNT);
+	thpool = thpool_init(max_user_count);
 	if (!thpool) {
 		fprintf(stderr, "thpool_init() falied\n");
 		return 1;
 	}
 
-	userlist = userlist_create(MAX_USER_COUNT);
+	userlist = userlist_create();
 	if (!userlist) {
 		fprintf(stderr, "userlist_create() falied\n");
 		return 1;
@@ -168,6 +176,22 @@ server_quit()
 	printf("\r[SYSTEM]Quit...\n");
 	TRY_OR_EXIT(cnct_Quit());
 	TRY_OR_EXIT(cnct_Remove());
+}
+
+void
+server_showOnlineUser(int fd)
+{
+	char sendMsg[CONNECT_MAX_MSG_SIZE];
+	int i;
+	userlist_info_t* userInfo;
+
+	cnct_SendMsg(fd, "====== User list ======");
+	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
+		userInfo = userlist_findByIndex(userlist, i);
+		sprintf(sendMsg,"%5i %s", i, userInfo->name);
+		cnct_SendMsg(fd, sendMsg);
+	}
+	cnct_SendMsg(fd, "====== End ======");
 }
 
 void
@@ -219,14 +243,7 @@ thread_clientHandler(void* args)
 
 		/* Command from client */
 		if (strcmp(recvMsg, "/users") == 0) {
-			cnct_SendMsg(client_fd, "====== User list ======");
-			for (i = 0; i < userlist_getCurrentSize(userlist);
-			     i++) {
-				userInfo = userlist_findByIndex(userlist, i);
-				sprintf(sendMsg,"%5i %s", i, userInfo->name);
-				cnct_SendMsg(client_fd, sendMsg);
-			}
-			cnct_SendMsg(client_fd, "====== End ======");
+			server_showOnlineUser(client_fd);
 			continue;
 		}
 
