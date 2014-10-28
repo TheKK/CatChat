@@ -206,7 +206,7 @@ cilent_doCmd(char* cmd)
 	else if (strcmp(cmd, "h") == 0|| strcmp(cmd, "help") == 0)
 		printf("Help page work in progress\n");
 	else
-		printf("[SYSTEM] Command %s not found\n", cmd);
+		printf("[SYSTEM] Command <:%s> not found\n", cmd);
 
 	return 0;
 }
@@ -214,10 +214,12 @@ cilent_doCmd(char* cmd)
 int
 client_doReq(char* req)
 {
-	TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(), CNCT_TYPE_REQ));
-
 	if (strcmp(req, "users") == 0) {
+		TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(),
+						   CNCT_TYPE_REQ));
 		TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), req));
+	} else {
+		printf("[SYSTEM] Request <\\%s> not found\n", req);
 	}
 
 	return 0;
