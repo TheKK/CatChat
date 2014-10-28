@@ -34,7 +34,6 @@ OBJ := $(addprefix $(OUT_DIR)/, $(notdir $(SRC:.c=.o)))
 SERVER_OBJ = $(OUT_DIR)/server_main.o	\
 	     $(OUT_DIR)/connect.o	\
 	     $(OUT_DIR)/userlist.o	\
-	     $(OUT_DIR)/thpool.o	\
 	     $(OUT_DIR)/mediaManager.o
 
 CLIENT_OBJ = $(OUT_DIR)/client_main.o	\

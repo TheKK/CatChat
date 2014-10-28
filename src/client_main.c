@@ -32,6 +32,8 @@
 #include "connect.h"
 
 /* ===================== Macros ===================== */
+#define MAX_NAME_SIZE 20
+
 #define TRY_OR_EXIT(cmd); \
 	do { \
 		if (cmd != 0) { \
@@ -52,6 +54,7 @@
 char* sock_path;
 pthread_t sender_t, receiver_t;
 sem_t client_shouldDie;
+sem_t client_connected;
 
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
@@ -110,6 +113,7 @@ client_init()
 
 	/* Init semaphore */
 	TRY_OR_RETURN(sem_init(&client_shouldDie, 0, 0));
+	TRY_OR_RETURN(sem_init(&client_connected, 0, 0));
 
 	/* Initialize socket stuffs */
 	printf("\r[SYSTEM]Init...\n");
@@ -122,11 +126,12 @@ int
 client_getServerAnswer()
 {
 	char msg[10];
-	/* Wait for server */
+
+	/* Wait for server to check if we are allow to connect */
 	cnct_RecvMsg(cnct_GetSocket(), msg);
-	if (strcmp(msg, "boo") == 0)
+	if (strcmp(msg, "y") == 0)
 		return 1;
-	else
+	else if (strcmp(msg, "n") == 0)
 		return 0;
 }
 
@@ -138,7 +143,9 @@ client_quit()
 
 	if (receiver_t != -1)
 		pthread_cancel(receiver_t);
+
 	sem_destroy(&client_shouldDie);
+	sem_destroy(&client_connected);
 
 	printf("\r[SYSTEM]Quit...\n");
 	TRY_OR_EXIT(cnct_Quit());
@@ -174,10 +181,21 @@ thread_sender(void* args)
 	char msg[CONNECT_MAX_MSG_SIZE + 1];
 
 	/* Tell server you name */
-	printf("[SYSTEM]What is you name: ");
-	fgets(msg, 10, stdin);
-	remove_next_line_symbol(msg);
-	cnct_SendMsg(cnct_GetSocket(), msg);
+	while (1) {
+		printf("[SYSTEM]What is you name: ");
+		fgets(msg, MAX_NAME_SIZE, stdin);
+		remove_next_line_symbol(msg);
+
+		cnct_SendMsg(cnct_GetSocket(), msg);
+		cnct_RecvMsg(cnct_GetSocket(), msg);
+		if (strcmp(msg, "y") == 0)
+			break;
+		else if (strcmp(msg, "n") == 0) {
+			printf("[SYSTEM]This name is been uesed,\
+			       use another\n");
+		}
+	}
+	sem_post(&client_connected);
 
 	while (1) {
 		printf(">>");
@@ -203,6 +221,9 @@ thread_receiver(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE];
 	int flag;
+
+	/* Wait for other thread to finish registration */
+	sem_wait(&client_connected);
 
 	while (1) {
 		flag = cnct_RecvMsg(cnct_GetSocket(), msg);

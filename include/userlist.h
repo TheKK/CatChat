@@ -35,7 +35,7 @@
 typedef struct userlist_info_t
 {
 	char name[USERLIST_MAX_NAME_SIZE + 1];
-	int fd;
+	int socket;
 	int tid;
 	time_t loginTime;
 
@@ -53,10 +53,11 @@ typedef struct userlist_list_t
 userlist_list_t* userlist_create();
 void userlist_destroy(userlist_list_t* list);
 
-int userlist_add(userlist_list_t* list, int fd, const char* name);
+int userlist_add(userlist_list_t* list, int socket, pthread_t tid,
+		 const char* name);
 void userlist_remove(userlist_list_t* list, const char* who);
 
-userlist_info_t* userlist_findByFd(userlist_list_t* list, int fd);
+userlist_info_t* userlist_findByFd(userlist_list_t* list, int socket);
 userlist_info_t* userlist_findByName(userlist_list_t* list, const char* name);
 /* 
  * WARNNING!

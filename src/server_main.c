@@ -20,27 +20,19 @@
 /* ===================== Headers ===================== */
 #include <getopt.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include "connect.h"
 #include "userlist.h"
 #include "mediaManager.h"
-
-/*
- * C-Thread-Pool
- * Author:  Johan Hanssen Seferidis
- * Created: 2011-08-12
- *
- * License: LGPL
- */
-#include "thpool.h"
 
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
@@ -66,13 +58,13 @@ static char* sock_path;
 static pthread_t accepter_t;
 static pthread_mutex_t sendMutex = PTHREAD_MUTEX_INITIALIZER;
 static sem_t server_shouldDie;
-static thpool_t* thpool;
+static sem_t server_threadCreated;
 static userlist_list_t* userlist;
 static int max_user_count;
 
 struct job_args
 {
-	int fd;
+	int socket;
 };
 
 /* ===================== Prototypes ===================== */
@@ -88,8 +80,8 @@ server_showVersion()
 void
 server_showHelp()
 {
-	printf("chatchat server: [-d socket dir]\
-	       [-m max client number][-v version][-h help]\n");
+	printf("chatchat server:[-d socket dir]"
+	       "[-m max client number][-v version][-h help]\n");
 }
 
 void
@@ -115,7 +107,7 @@ server_getopt(int argc, char* argv[])
 		case '?':
 		default:
 			server_showHelp();
-			break;
+			exit(0);
 		}
 	}
 }
@@ -131,13 +123,7 @@ server_init()
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 
-	/* Init pool and user list and other stuffs */
-	thpool = thpool_init(max_user_count);
-	if (!thpool) {
-		fprintf(stderr, "thpool_init() falied\n");
-		return 1;
-	}
-
+	/* Init user list and other stuffs */
 	userlist = userlist_create();
 	if (!userlist) {
 		fprintf(stderr, "userlist_create() falied\n");
@@ -148,6 +134,7 @@ server_init()
 
 	/* Init semaphore */
 	TRY_OR_RETURN(sem_init(&server_shouldDie, 0, 0));
+	TRY_OR_RETURN(sem_init(&server_threadCreated, 0, 0));
 
 	/* Initialization socket stuffs */
 	printf("\r[SYSTEM]Init...\n");
@@ -168,10 +155,10 @@ server_quit()
 	/* Clean these mess and quit */
 	pthread_cancel(accepter_t);
 	mdManager_quit();
-	thpool_forceDestroy(thpool);
 	userlist_destroy(userlist);
 	pthread_mutex_destroy(&sendMutex);
 	sem_destroy(&server_shouldDie);
+	sem_destroy(&server_threadCreated);
 
 	printf("\r[SYSTEM]Quit...\n");
 	TRY_OR_EXIT(cnct_Quit());
@@ -179,58 +166,78 @@ server_quit()
 }
 
 void
-server_showOnlineUser(int fd)
+server_showOnlineUser(int socket)
 {
 	char sendMsg[CONNECT_MAX_MSG_SIZE];
 	int i;
 	userlist_info_t* userInfo;
 
-	cnct_SendMsg(fd, "====== User list ======");
+	cnct_SendMsg(socket, "====== User list ======");
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 		sprintf(sendMsg,"%5i %s", i, userInfo->name);
-		cnct_SendMsg(fd, sendMsg);
+		cnct_SendMsg(socket, sendMsg);
 	}
-	cnct_SendMsg(fd, "====== End ======");
+	cnct_SendMsg(socket, "====== End ======");
 }
 
 void
-server_setNewUser(int fd, char name[USERLIST_MAX_NAME_SIZE + 1])
+server_setNewUser(int socket, pthread_t tid,
+		  char name[USERLIST_MAX_NAME_SIZE + 1])
 {
 	/* Receive name from client */
-	cnct_RecvMsg(fd, name);
-	printf("\r[INFO]client %s connected: peer_fd = %d\n", name, fd);
+	while (1) {
+		cnct_RecvMsg(socket, name);
 
-	userlist_add(userlist, fd, name);
+		if (userlist_findByName(userlist, name)) {
+			cnct_SendMsg(socket, "n");
+		} else {
+			cnct_SendMsg(socket, "y");
+			break;
+		}
+	}
+
+	printf("\r[INFO]client %s connected: peer_socket = %d\n",
+	       name, socket);
+
+	userlist_add(userlist, socket, tid, name);
 }
 
 /* ===================== Thread functions ===================== */
 void*
-thread_clientHandler(void* args)
+thread_clientHand(void* args)
+{
+}
+
+void*
+thread_clientGreeter(void* args)
 {
 	/* TODO: User char pointer rather array of char */
 	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
 	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
 	userlist_info_t* userInfo;
-	int client_fd;
+	int client_sock;
 	int flag;
 	int i;
 
-	client_fd = ((struct job_args*)args)->fd;
+	client_sock = ((struct job_args*)args)->socket;
 
-	server_setNewUser(client_fd, name);
+	/* Tell server you've used job_args and others can use it now */
+	sem_post(&server_threadCreated);
+
+	server_setNewUser(client_sock, pthread_self(), name);
 
 	while (1) {
-		flag = cnct_RecvMsg(client_fd, recvMsg);
+		flag = cnct_RecvMsg(client_sock, recvMsg);
 
 		/* Check error */
 		if (flag == -1) {
 			perror("recv()");
 			break;
 		} else if (flag == 0) {
-			printf("\r[INFO]client disconnected: fd = %d\n",
-			       client_fd);
+			printf("\r[INFO]client disconnected: socket = %d\n",
+			       client_sock);
 			break;
 		}
 
@@ -243,24 +250,24 @@ thread_clientHandler(void* args)
 
 		/* Command from client */
 		if (strcmp(recvMsg, "/users") == 0) {
-			server_showOnlineUser(client_fd);
+			server_showOnlineUser(client_sock);
 			continue;
 		}
 
 		/* Normal texts */
-		printf("\r[MSG]%s (fd = %d) said: %s\n",
-		       name, client_fd, recvMsg);
+		printf("\r[MSG]%s (socket = %d) said: %s\n",
+		       name, client_sock, recvMsg);
 
 		for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 			userInfo = userlist_findByIndex(userlist, i);
 
 			sprintf(sendMsg,"%s say: %s", name, recvMsg);
-			cnct_SendMsg(userInfo->fd, sendMsg);
+			cnct_SendMsg(userInfo->socket, sendMsg);
 		}
 	}
 
 	userlist_remove(userlist, name);
-	close(client_fd);
+	close(client_sock);
 
 	return NULL;
 }
@@ -268,22 +275,31 @@ thread_clientHandler(void* args)
 void*
 thread_accepter(void* args)
 {
-	int peer_fd;
+	int peer_sock;
+	pthread_t tid;
 	struct job_args job_args;
 
 	while (1) {
-		peer_fd = cnct_Accept((struct sockaddr*) NULL, NULL);
+		peer_sock = cnct_Accept((struct sockaddr*) NULL, NULL);
 
 		/* Error */
-		if (peer_fd == -1) {
+		if (peer_sock == -1) {
 			perror("cnct_Accept()");
 			break;
 		} else {
 			/* Tell client that I hear his/her call */
-			cnct_SendMsg(peer_fd, "boo");
-			job_args.fd = peer_fd;
-			thpool_add_work(thpool, thread_clientHandler,
-					(void*)&job_args);
+			if (userlist_getCurrentSize(userlist) < max_user_count)
+				cnct_SendMsg(peer_sock, "y");
+			else {
+				cnct_SendMsg(peer_sock, "n");
+				continue;
+			}
+
+			job_args.socket = peer_sock;
+			pthread_create(&tid, NULL, thread_clientGreeter,
+				       &job_args);
+			/* Make sure new thread has copied job_args */
+			sem_wait(&server_threadCreated);
 		}
 	}
 
