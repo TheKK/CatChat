@@ -38,7 +38,7 @@
 
 #define TRY_OR_EXIT(cmd); \
 	do { \
-		if (cmd != 0) { \
+		if (cmd == -1) { \
 			perror(#cmd); \
 			exit(EXIT_FAILURE); \
 		} \
@@ -46,7 +46,7 @@
 
 #define TRY_OR_RETURN(cmd); \
 	do { \
-		if (cmd != 0) { \
+		if (cmd == -1) { \
 			perror(#cmd); \
 			return -1; \
 		} \
@@ -60,6 +60,7 @@ sem_t client_connected;
 
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
+void remove_next_line_symbol(char* str);
 
 /* ===================== Functions ===================== */
 void
@@ -149,7 +150,7 @@ client_quit()
 
 
 int
-client_getServerAnswer()
+client_checkConnectPermission()
 {
 	char msg[10];
 
@@ -157,8 +158,32 @@ client_getServerAnswer()
 	cnct_RecvMsg(cnct_GetSocket(), msg);
 	if (strcmp(msg, "y") == 0)
 		return 1;
-	else if (strcmp(msg, "n") == 0)
-		return 0;
+
+	return 0;
+}
+
+void
+client_setName()
+{
+	char msg[CONNECT_MAX_MSG_SIZE];
+
+	/* Tell server you name */
+	while (1) {
+		printf("[SYSTEM]What is you name: ");
+		fgets(msg, MAX_NAME_SIZE, stdin);
+		remove_next_line_symbol(msg);
+
+		cnct_SendMsg(cnct_GetSocket(), msg);
+		cnct_RecvMsg(cnct_GetSocket(), msg);
+		if (strcmp(msg, "y") == 0) {
+			sem_post(&client_connected);
+			break;
+		}
+		else if (strcmp(msg, "n") == 0) {
+			printf("[SYSTEM] This name is been uesed, "
+			       "use another\n");
+		}
+	}
 }
 
 /* TODO maybe place this to other file */
@@ -173,7 +198,7 @@ remove_next_line_symbol(char* str)
 		*c = '\0';
 }
 
-void
+int
 cilent_doCmd(char* cmd)
 {
 	if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0)
@@ -182,71 +207,89 @@ cilent_doCmd(char* cmd)
 		printf("Help page work in progress\n");
 	else
 		printf("[SYSTEM] Command %s not found\n", cmd);
+
+	return 0;
+}
+
+int
+client_doReq(char* req)
+{
+	if (strcmp(req, "users") == 0) {
+		TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(),
+						   CNCT_TYPE_REQ));
+		TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), req));
+	}
+
+	return 0;
+}
+
+int
+client_sendMsgToServer(char* msg)
+{
+	TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(), CNCT_TYPE_MSG));
+	TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), msg));
+
+	return 0;
 }
 
 /* ===================== Thread functions ===================== */
 void*
 thread_sender(void* args)
 {
-	char msg[CONNECT_MAX_MSG_SIZE + 1];
+	char msg[CONNECT_MAX_MSG_SIZE];
+	int flag;
 
-	/* Tell server you name */
-	while (1) {
-		printf("[SYSTEM]What is you name: ");
-		fgets(msg, MAX_NAME_SIZE, stdin);
-		remove_next_line_symbol(msg);
+	client_setName();
 
-		cnct_SendMsg(cnct_GetSocket(), msg);
-		cnct_RecvMsg(cnct_GetSocket(), msg);
-		if (strcmp(msg, "y") == 0)
-			break;
-		else if (strcmp(msg, "n") == 0) {
-			printf("[SYSTEM]This name is been uesed, "
-			       "use another\n");
-		}
-	}
-	sem_post(&client_connected);
-
+	flag = 1;
 	while (1) {
 		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
 		remove_next_line_symbol(msg);
 
-		if (msg[0] == ':') /* Is command */
-			cilent_doCmd(msg + 1);
-		else if (msg[0] != '\0') /* Not empty text */
-			if (cnct_SendMsg(cnct_GetSocket(), msg) < 0) {
-				perror("cnct_SendMsg()");
-				sem_post(&client_shouldDie);
-				pthread_exit(NULL);
-			}
+		/* Check type */
+		switch (msg[0]) {
+		case ':':	/* client command */
+			flag = cilent_doCmd(msg + 1);
+			break;
+		case '/':	/* server request */
+			flag = client_doReq(msg + 1);
+			break;
+		case '\0':	/* no text */
+			break;
+		default:	/* text message */
+			flag = client_sendMsgToServer(msg);
+			break;
+		}
+
+		if (flag < 0) {
+			perror("thread_sender()");
+			sem_post(&client_shouldDie);
+			break;
+		}
 	}
 
-	return  NULL;
+	return NULL;
 }
 
 void*
 thread_receiver(void* args)
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE + 1];
 	int flag;
-
-	/* Wait for other thread to finish registration */
-	sem_wait(&client_connected);
 
 	while (1) {
 		flag = cnct_RecvMsg(cnct_GetSocket(), msg);
 
-		if (flag == -1) {
+		switch (flag) {
+		case -1:	/* Error */
 			perror("cnct_RecvMsg()");
+		case 0:		/* Disconnected */
 			sem_post(&client_shouldDie);
 			break;
-		} else if (flag == 0) { /* Disconnected */
-			perror("cnct_RecvMsg()");
-			sem_post(&client_shouldDie);
+		default:	/* Normal text */
+			printf("\r%s\n", msg);
 			break;
 		}
-
-		printf("\r%s\n", msg);
 	}
 
 	return NULL;
@@ -260,8 +303,7 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 
 	if (signum == SIGPIPE) {
 		printf("\r[SYSTEM]Disconnected...\n");
-		TRY_OR_EXIT(cnct_Quit());
-		exit(EXIT_FAILURE);
+		sem_post(&client_shouldDie);
 	}
 
 	printf("\r[SYSTEM]To exit CatChat please type :q<Enter>\n");
@@ -290,10 +332,15 @@ main(int argc, char* argv[])
 
 	/* Connected  then wait for death... */
 	printf("\r[SYSTEM]Connected!!\n");
-	if (client_getServerAnswer() == 1) {
+	if (client_checkConnectPermission() == 1) {
 		pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
+
+		/* Wait for other thread to finish registration */
+		sem_wait(&client_connected);
+
 		pthread_create(&receiver_t, NULL, (void*) thread_receiver,
 			       NULL);
+
 		sem_wait(&client_shouldDie);
 	}
 

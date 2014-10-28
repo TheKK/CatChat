@@ -34,6 +34,14 @@
 #define CONNECT_MAX_MSG_SIZE 512
 #define CONNECT_MAX_BUFFER_SIZE 16 * 1024
 
+/* ===================== Definitions ===================== */
+typedef enum
+{
+	CNCT_TYPE_MSG	= 0x00, /* 1 byte */
+	CNCT_TYPE_FILE	= 0x01,
+	CNCT_TYPE_REQ	= 0x02
+} cnct_type;
+
 /* ===================== Functions ===================== */
 int cnct_Init(int domain, char* sockPath);
 int cnct_Remove();
@@ -49,6 +57,9 @@ int cnct_RecvMsg(int socket, char* buff);
 
 int cnct_SendFile(int socket, FILE* fd);
 int cnct_RecvFile(int socket, FILE* fd);
+
+int cnct_SendRequestType(int socket, cnct_type type);
+int cnct_RecvRequestType(int socket, cnct_type* type);
 
 int cnct_GetSocket();
 

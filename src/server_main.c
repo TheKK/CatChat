@@ -47,7 +47,7 @@
 
 #define TRY_OR_RETURN(cmd); \
 	do { \
-		if (cmd != 0) { \
+		if (cmd == -1) { \
 			perror(#cmd); \
 			return -1; \
 		} \
@@ -165,30 +165,45 @@ server_quit()
 	TRY_OR_EXIT(cnct_Remove());
 }
 
-void
-server_showOnlineUser(int socket)
+int
+server_tellConnectPermission(int socket)
+{
+	if (userlist_getCurrentSize(userlist) < max_user_count) {
+		cnct_SendMsg(socket, "y");
+		return 1;
+	} else {
+		cnct_SendMsg(socket, "n");
+		return 0;
+	}
+}
+
+int
+server_showOnlineUserTo(int socket)
 {
 	char sendMsg[CONNECT_MAX_MSG_SIZE];
 	int i;
 	userlist_info_t* userInfo;
 
-	cnct_SendMsg(socket, "====== User list ======");
+	TRY_OR_RETURN(cnct_SendMsg(socket, "====== User list ======"));
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 		sprintf(sendMsg,"%5i %s", i, userInfo->name);
-		cnct_SendMsg(socket, sendMsg);
+		TRY_OR_RETURN(cnct_SendMsg(socket, sendMsg));
 	}
-	cnct_SendMsg(socket, "====== End ======");
+	TRY_OR_RETURN(cnct_SendMsg(socket, "====== End ======"));
+
+	return 0;
 }
 
 void
-server_setNewUser(int socket, pthread_t tid,
+server_addNewUser(int socket, pthread_t tid,
 		  char name[USERLIST_MAX_NAME_SIZE + 1])
 {
 	/* Receive name from client */
 	while (1) {
 		cnct_RecvMsg(socket, name);
 
+		/* If name already exist in current userlist */
 		if (userlist_findByName(userlist, name)) {
 			cnct_SendMsg(socket, "n");
 		} else {
@@ -197,47 +212,74 @@ server_setNewUser(int socket, pthread_t tid,
 		}
 	}
 
-	printf("\r[INFO]client %s connected: peer_socket = %d\n",
+	printf("\r[INFO] Client %s connected: peer_socket = %d\n",
 	       name, socket);
 
 	userlist_add(userlist, socket, tid, name);
 }
 
-/* ===================== Thread functions ===================== */
-void*
-thread_clientHand(void* args)
+int
+server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 {
+	char sendMsg[CONNECT_MAX_MSG_SIZE + sizeof(" say: ") + sizeof(recvMsg)];
+	int i;
+	userlist_info_t* userInfo;
+
+	/* Normal texts */
+	printf("\r[MSG]%s (socket = %d) said: %s\n",
+	       client_name, client_sock, recvMsg);
+
+	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
+		userInfo = userlist_findByIndex(userlist, i);
+
+		sprintf(sendMsg,"%s say: %s", client_name, recvMsg);
+		TRY_OR_RETURN(cnct_SendMsg(userInfo->socket, sendMsg));
+	}
+
+	return 0;
 }
 
+int
+server_doReq(int client_sock, char* req)
+{
+	/* Command from client */
+	if (strcmp(req, "users") == 0)
+		TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
+	return 0;
+}
+
+/* ===================== Thread functions ===================== */
 void*
 thread_clientGreeter(void* args)
 {
 	/* TODO: User char pointer rather array of char */
 	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
-	char sendMsg[sizeof(name) + sizeof(" say: ") + sizeof(recvMsg)];
-	userlist_info_t* userInfo;
-	int client_sock;
-	int flag;
-	int i;
+	int client_sock, flag, client_is_alive;
+	uint32_t type;
 
 	client_sock = ((struct job_args*)args)->socket;
 
 	/* Tell server you've used job_args and others can use it now */
 	sem_post(&server_threadCreated);
 
-	server_setNewUser(client_sock, pthread_self(), name);
+	server_addNewUser(client_sock, pthread_self(), name);
 
-	while (1) {
-		flag = cnct_RecvMsg(client_sock, recvMsg);
+	client_is_alive = 1;
+	while (client_is_alive) {
+		cnct_RecvRequestType(client_sock, &type);
 
-		/* Check error */
-		if (flag == -1) {
-			perror("recv()");
+		/* Check type */
+		switch (type) {
+		case CNCT_TYPE_MSG:
+			flag = cnct_RecvMsg(client_sock, recvMsg);
+			flag = server_sendMsgToEveryone(name, client_sock,
+							recvMsg);
 			break;
-		} else if (flag == 0) {
-			printf("\r[INFO]client disconnected: socket = %d\n",
-			       client_sock);
+		case CNCT_TYPE_REQ:
+			flag = server_doReq(client_sock, recvMsg);
+			break;
+		case CNCT_TYPE_FILE:
 			break;
 		}
 
@@ -245,24 +287,20 @@ thread_clientGreeter(void* args)
 		if (strcmp(recvMsg, "palus") == 0) {
 			printf("My eye!!! My EYEEEEEEE!!!\n");
 			sem_post(&server_shouldDie);
+			client_is_alive = 0;
+		}
+
+		/* Check recv error */
+		switch (flag) {
+		case -1:
+			perror("recv()");
+			client_is_alive = 0;
 			break;
-		}
-
-		/* Command from client */
-		if (strcmp(recvMsg, "/users") == 0) {
-			server_showOnlineUser(client_sock);
-			continue;
-		}
-
-		/* Normal texts */
-		printf("\r[MSG]%s (socket = %d) said: %s\n",
-		       name, client_sock, recvMsg);
-
-		for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
-			userInfo = userlist_findByIndex(userlist, i);
-
-			sprintf(sendMsg,"%s say: %s", name, recvMsg);
-			cnct_SendMsg(userInfo->socket, sendMsg);
+		case 0:
+			printf("\r[INFO]client disconnected: socket = %d\n",
+			       client_sock);
+			client_is_alive = 0;
+			break;
 		}
 	}
 
@@ -282,24 +320,23 @@ thread_accepter(void* args)
 	while (1) {
 		peer_sock = cnct_Accept((struct sockaddr*) NULL, NULL);
 
-		/* Error */
-		if (peer_sock == -1) {
+		switch (peer_sock) {
+		case -1:	/* Error */
 			perror("cnct_Accept()");
+			sem_post(&server_shouldDie);
 			break;
-		} else {
-			/* Tell client that I hear his/her call */
-			if (userlist_getCurrentSize(userlist) < max_user_count)
-				cnct_SendMsg(peer_sock, "y");
-			else {
-				cnct_SendMsg(peer_sock, "n");
-				continue;
-			}
+		default:
+			/* Tell client if he/she can join this server */
+			if (!server_tellConnectPermission(peer_sock))
+				break;
 
 			job_args.socket = peer_sock;
 			pthread_create(&tid, NULL, thread_clientGreeter,
 				       &job_args);
+
 			/* Make sure new thread has copied job_args */
 			sem_wait(&server_threadCreated);
+			break;
 		}
 	}
 
@@ -310,7 +347,12 @@ thread_accepter(void* args)
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
-	sem_post(&server_shouldDie);
+	if (signum == SIGPIPE) {
+		printf("\r[SYSTEM] Disconnected...\n");
+		sem_post(&server_shouldDie);
+	} else {
+		sem_post(&server_shouldDie);
+	}
 }
 
 /* ===================== Main function ===================== */

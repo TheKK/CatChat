@@ -217,6 +217,26 @@ cnct_RecvFile(int socket, FILE* fd)
 }
 
 int
+cnct_SendRequestType(int socket, cnct_type type)
+{
+	int flag;
+
+	flag = send(socket, &type, 1, 0);
+
+	return flag;
+}
+
+int
+cnct_RecvRequestType(int socket, cnct_type* type)
+{
+	int flag;
+
+	flag = recv(socket, type, 1, 0);
+
+	return flag;
+}
+
+int
 cnct_GetSocket()
 {
 	return my_socket;

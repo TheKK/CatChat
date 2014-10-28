@@ -79,7 +79,7 @@ mdManager_fcopy(const char* inputPath, const char* outputName)
 	fseek(inputFd, 0, SEEK_END);
 	size = ftell(inputFd);
 	fseek(inputFd, 0, SEEK_SET);
-	
+
 	/* Write file content */
 	while (size) {
 		if (size > MAX_BUFFER_SIZE)
