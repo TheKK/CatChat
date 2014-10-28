@@ -67,7 +67,7 @@ userlist_destroy(userlist_list_t* list)
 }
 
 int
-userlist_add(userlist_list_t* list, int fd, const char* name)
+userlist_add(userlist_list_t* list, int socket, pthread_t tid, const char* name)
 {
 	assert(list != NULL);
 
@@ -76,8 +76,8 @@ userlist_add(userlist_list_t* list, int fd, const char* name)
 	/* New user info chunck */
 	tmp = (userlist_info_t*)malloc(sizeof(userlist_info_t));
 	strncat(tmp->name, name, USERLIST_MAX_NAME_SIZE);
-	tmp->fd = fd;
-	tmp->tid = 0;	/* TODO finish this */
+	tmp->socket = socket;
+	tmp->tid = tid;
 	tmp->loginTime = time(NULL);
 	tmp->next = tmp;
 	tmp->prev = tmp;
@@ -126,14 +126,14 @@ userlist_remove(userlist_list_t* list, const char* who)
 
 /* FIXME Not sure if this can be thread safe */
 userlist_info_t*
-userlist_findByFd(userlist_list_t* list, int fd)
+userlist_findByFd(userlist_list_t* list, int socket)
 {
 	assert(list != NULL);
 
 	userlist_info_t* seek;
 
 	for (seek = list->head; seek != NULL; seek = seek->next) {
-		if (seek->fd == fd)
+		if (seek->socket == socket)
 			return seek;
 	}
 
@@ -147,9 +147,12 @@ userlist_findByName(userlist_list_t* list, const char* name)
 {
 	assert(list != NULL);
 
+	int i;
 	userlist_info_t* seek;
 
-	for (seek = list->head; seek != NULL; seek = seek->next) {
+	for (seek = list->head, i = 0;
+	     i < list->currentSize;
+	     seek = seek->next, i++) {
 		if (strcmp(seek->name, name) == 0)
 			return seek;
 	}
