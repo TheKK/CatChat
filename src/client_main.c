@@ -28,8 +28,10 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "connect.h"
+#include "mediaManager.h"
 
 /* ===================== Macros ===================== */
 #define MAX_NAME_SIZE 20
@@ -100,6 +102,7 @@ int
 client_init()
 {
 	struct sigaction act;
+	char mdName[20];
 
 	sender_t = -1;
 	receiver_t = -1;
@@ -110,6 +113,10 @@ client_init()
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGPIPE, &act, NULL);
+
+	srand(time(NULL));
+	snprintf(mdName, sizeof(mdName), ".client%d", (rand() % 99999));
+	TRY_OR_RETURN(mdManager_init(mdName));
 
 	/* Init semaphore */
 	TRY_OR_RETURN(sem_init(&client_shouldDie, 0, 0));
@@ -122,6 +129,25 @@ client_init()
 	return 0;
 }
 
+void
+client_quit()
+{
+	if (sender_t != -1)
+		pthread_cancel(sender_t);
+
+	if (receiver_t != -1)
+		pthread_cancel(receiver_t);
+
+	mdManager_quit();
+
+	sem_destroy(&client_shouldDie);
+	sem_destroy(&client_connected);
+
+	printf("\r[SYSTEM]Quit...\n");
+	TRY_OR_EXIT(cnct_Quit());
+}
+
+
 int
 client_getServerAnswer()
 {
@@ -133,22 +159,6 @@ client_getServerAnswer()
 		return 1;
 	else if (strcmp(msg, "n") == 0)
 		return 0;
-}
-
-void
-client_quit()
-{
-	if (sender_t != -1)
-		pthread_cancel(sender_t);
-
-	if (receiver_t != -1)
-		pthread_cancel(receiver_t);
-
-	sem_destroy(&client_shouldDie);
-	sem_destroy(&client_connected);
-
-	printf("\r[SYSTEM]Quit...\n");
-	TRY_OR_EXIT(cnct_Quit());
 }
 
 /* TODO maybe place this to other file */
@@ -191,15 +201,13 @@ thread_sender(void* args)
 		if (strcmp(msg, "y") == 0)
 			break;
 		else if (strcmp(msg, "n") == 0) {
-			printf("[SYSTEM]This name is been uesed,\
-			       use another\n");
+			printf("[SYSTEM]This name is been uesed, "
+			       "use another\n");
 		}
 	}
 	sem_post(&client_connected);
 
 	while (1) {
-		printf(">>");
-
 		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
 		remove_next_line_symbol(msg);
 

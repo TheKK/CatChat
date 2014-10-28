@@ -37,7 +37,8 @@ SERVER_OBJ = $(OUT_DIR)/server_main.o	\
 	     $(OUT_DIR)/mediaManager.o
 
 CLIENT_OBJ = $(OUT_DIR)/client_main.o	\
-	     $(OUT_DIR)/connect.o
+	     $(OUT_DIR)/connect.o	\
+	     $(OUT_DIR)/mediaManager.o
 
 # Libs flags
 LIB = -lpthread
