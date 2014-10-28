@@ -214,9 +214,9 @@ cilent_doCmd(char* cmd)
 int
 client_doReq(char* req)
 {
+	TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(), CNCT_TYPE_REQ));
+
 	if (strcmp(req, "users") == 0) {
-		TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(),
-						   CNCT_TYPE_REQ));
 		TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), req));
 	}
 

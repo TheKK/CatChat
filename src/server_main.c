@@ -37,6 +37,10 @@
 /* ===================== Macros ===================== */
 #define LISTEN_BACKLOG 5
 
+#define FLAG_DISCONNECT	-2
+#define FLAG_OTHER	-1
+#define FLAG_NOERROR	0
+
 #define TRY_OR_EXIT(cmd); \
 	do { \
 		if (cmd == -1) { \
@@ -166,6 +170,22 @@ server_quit()
 }
 
 int
+server_checkFlag(int flag)
+{
+	switch (flag) {
+	case -1:
+		return FLAG_OTHER;
+		break;
+	case 0:
+		return FLAG_DISCONNECT;
+		break;
+	default:
+		return FLAG_NOERROR;
+		break;
+	}
+}
+
+int
 server_tellConnectPermission(int socket)
 {
 	if (userlist_getCurrentSize(userlist) < max_user_count) {
@@ -222,7 +242,7 @@ int
 server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 {
 	char sendMsg[CONNECT_MAX_MSG_SIZE + sizeof(" say: ") + sizeof(recvMsg)];
-	int i;
+	int i, flag;
 	userlist_info_t* userInfo;
 
 	/* Normal texts */
@@ -233,10 +253,12 @@ server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 		userInfo = userlist_findByIndex(userlist, i);
 
 		sprintf(sendMsg,"%s say: %s", client_name, recvMsg);
-		TRY_OR_RETURN(cnct_SendMsg(userInfo->socket, sendMsg));
+		flag = cnct_SendMsg(userInfo->socket, sendMsg);
+		if (flag <= 0)
+			return flag;
 	}
 
-	return 0;
+	return flag;
 }
 
 int
@@ -267,20 +289,29 @@ thread_clientGreeter(void* args)
 
 	client_is_alive = 1;
 	while (client_is_alive) {
-		cnct_RecvRequestType(client_sock, &type);
+		flag = cnct_RecvRequestType(client_sock, &type);
+		if (flag <= 0) {
+			client_is_alive = 0;
+			continue;
+		}
 
 		/* Check type */
 		switch (type) {
 		case CNCT_TYPE_MSG:
 			flag = cnct_RecvMsg(client_sock, recvMsg);
-			flag = server_sendMsgToEveryone(name, client_sock,
-							recvMsg);
+			server_sendMsgToEveryone(name, client_sock,
+						 recvMsg);
 			break;
 		case CNCT_TYPE_REQ:
-			flag = server_doReq(client_sock, recvMsg);
+			flag = cnct_RecvMsg(client_sock, recvMsg);
+			server_doReq(client_sock, recvMsg);
 			break;
 		case CNCT_TYPE_FILE:
 			break;
+		}
+		if (flag <= 0) {
+			client_is_alive = 0;
+			continue;
 		}
 
 		/* Check if you cast the spell your grandma told you... */
@@ -288,21 +319,11 @@ thread_clientGreeter(void* args)
 			printf("My eye!!! My EYEEEEEEE!!!\n");
 			sem_post(&server_shouldDie);
 			client_is_alive = 0;
-		}
-
-		/* Check recv error */
-		switch (flag) {
-		case -1:
-			perror("recv()");
-			client_is_alive = 0;
-			break;
-		case 0:
-			printf("\r[INFO]client disconnected: socket = %d\n",
-			       client_sock);
-			client_is_alive = 0;
-			break;
+			continue;
 		}
 	}
+
+	printf("\r[INFO] Client disconnected: socket = %d\n", client_sock);
 
 	userlist_remove(userlist, name);
 	close(client_sock);
@@ -347,12 +368,7 @@ thread_accepter(void* args)
 void
 sig_handler(int signum, siginfo_t* info, void* ptr)
 {
-	if (signum == SIGPIPE) {
-		printf("\r[SYSTEM] Disconnected...\n");
-		sem_post(&server_shouldDie);
-	} else {
-		sem_post(&server_shouldDie);
-	}
+	sem_post(&server_shouldDie);
 }
 
 /* ===================== Main function ===================== */
