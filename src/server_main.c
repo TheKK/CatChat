@@ -262,11 +262,34 @@ server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 }
 
 int
-server_doReq(int client_sock, char* req)
+server_doReq(char* client_name, int client_sock, char* req)
 {
+	char msg[CONNECT_MAX_MSG_SIZE];
+	char tosend[2 * CONNECT_MAX_MSG_SIZE];
+	char name[USERLIST_MAX_NAME_SIZE];
+	userlist_info_t* userInfo;
+
 	/* Command from client */
-	if (strcmp(req, "users") == 0)
+	if (strcmp(req, "users") == 0) {			/* /user */
 		TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
+	} else if (sscanf(req, "%[^ ]%[^$]", name, msg) == 2) {	/* DM */
+		userInfo = userlist_findByName(userlist, name);
+		if (userInfo) {
+			sprintf(tosend, "[%s talk to you] %s\n",
+				client_name, msg);
+			cnct_SendMsg(userInfo->socket, tosend);
+
+			sprintf(tosend, "[you talk to %s] %s\n",
+				userInfo->name, msg);
+			cnct_SendMsg(client_sock, tosend);
+		} else {
+			cnct_SendMsg(client_sock, "[SERVER] User not found\n");
+		}
+	} else {
+		sprintf(msg, "[SYSTEM] Request <\\%s> not found\n", req);
+		TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
+	}
+
 	return 0;
 }
 
@@ -304,7 +327,7 @@ thread_clientGreeter(void* args)
 			break;
 		case CNCT_TYPE_REQ:
 			flag = cnct_RecvMsg(client_sock, recvMsg);
-			server_doReq(client_sock, recvMsg);
+			server_doReq(name, client_sock, recvMsg);
 			break;
 		case CNCT_TYPE_FILE:
 			break;

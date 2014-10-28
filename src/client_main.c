@@ -214,13 +214,8 @@ cilent_doCmd(char* cmd)
 int
 client_doReq(char* req)
 {
-	if (strcmp(req, "users") == 0) {
-		TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(),
-						   CNCT_TYPE_REQ));
-		TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), req));
-	} else {
-		printf("[SYSTEM] Request <\\%s> not found\n", req);
-	}
+	TRY_OR_RETURN(cnct_SendRequestType(cnct_GetSocket(), CNCT_TYPE_REQ));
+	TRY_OR_RETURN(cnct_SendMsg(cnct_GetSocket(), req));
 
 	return 0;
 }
