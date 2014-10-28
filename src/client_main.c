@@ -264,7 +264,7 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 		exit(EXIT_FAILURE);
 	}
 
-	printf("\r[SYSTEM]Use \":q<enter>\" to exit\n");
+	printf("\r[SYSTEM]To exit CatChat please type :q<Enter>\n");
 
 	if (count++ == 7) {
 		printf("\rTeaching you, is hard...(noise)\n");
