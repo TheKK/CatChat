@@ -38,7 +38,6 @@ mdManager_init(const char* basePath)
 {
 	mdManager_removeDir(basePath);
 	if (mkdir(basePath, 0700) == -1) {
-		perror("mkdir()");
 		return 1;
 	}
 
@@ -55,51 +54,62 @@ mdManager_quit()
 
 
 int
-mdManager_addfile(const char* inputPath, const char* outputName)
+mdManager_fcopy(const char* inputPath, const char* outputName)
 {
-	FILE* input;
-	FILE* output;
+	FILE* inputFd;
+	FILE* outputFd;
 	char buf[MAX_BUFFER_SIZE];
 	char outputPath[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(outputName)];
 	uint64_t size, w;
 
 	sprintf(outputPath, "%s/%s", g_basePath, outputName);
 
-	input = fopen(inputPath, "rb");
-	if (input == NULL) {
-		perror("fopen()");
+	inputFd = fopen(inputPath, "rb");
+	if (inputFd == NULL) {
 		return 1;
 	}
 
-	output = fopen(outputPath, "wb");
-	if (output == NULL) {
-		perror("fopen()");
-		fclose(input);
+	outputFd = fopen(outputPath, "wb");
+	if (outputFd == NULL) {
+		fclose(inputFd);
 		return 1;
 	}
 
 	/* Get file size */
-	fseek(input, 0, SEEK_END);
-	size = ftell(input);
-	fseek(input, 0, SEEK_SET);
+	fseek(inputFd, 0, SEEK_END);
+	size = ftell(inputFd);
+	fseek(inputFd, 0, SEEK_SET);
 	
 	/* Write file content */
 	while (size) {
-		if (size >= MAX_BUFFER_SIZE)
+		if (size > MAX_BUFFER_SIZE)
 			w = MAX_BUFFER_SIZE;
 		else
 			w = size;
 
-		fread(buf, 1, w, input);
-		fwrite(buf, 1, w, output);
+		fread(buf, 1, w, inputFd);
+		fwrite(buf, 1, w, outputFd);
 
 		size -= w;
 	}
 
-	fclose(input);
-	fclose(output);
+	fclose(inputFd);
+	fclose(outputFd);
 
 	return 0;
+}
+
+FILE*
+mdManager_fopen(const char* fileName, const char* mode)
+{
+	char path[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(fileName)];
+	FILE* fd;
+
+	fd = fopen(path, mode);
+	if (!fd)
+		return NULL;
+
+	return fd;
 }
 
 int
@@ -148,7 +158,6 @@ mdManager_removeDir(const char* where)
 		}
 		sprintf(file, "%s/%s", where, ent->d_name);
 		if (remove(file)) {
-			perror("remove()");
 			closedir(dir);
 			return -1;
 		}

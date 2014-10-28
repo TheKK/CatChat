@@ -36,7 +36,10 @@
 int mdManager_init(const char* basePath);
 void mdManager_quit();
 
-int mdManager_addfile(const char* inputPath, const char* outputName);
+int mdManager_fcopy(const char* inputPath, const char* outputName);
+
+FILE* mdManager_fopen(const char* fileName, const char* mode);
+
 int mdManager_ifFileExist(const char* filePath);
 
 #endif	/* MEDIA_MANAGER_H */

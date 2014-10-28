@@ -123,7 +123,7 @@ client_getServerAnswer()
 {
 	char msg[10];
 	/* Wait for server */
-	cnct_RecvMsg(cnct_Getfd(), msg);
+	cnct_RecvMsg(cnct_GetSocket(), msg);
 	if (strcmp(msg, "boo") == 0)
 		return 1;
 	else
@@ -177,7 +177,7 @@ thread_sender(void* args)
 	printf("[SYSTEM]What is you name: ");
 	fgets(msg, 10, stdin);
 	remove_next_line_symbol(msg);
-	cnct_SendMsg(cnct_Getfd(), msg);
+	cnct_SendMsg(cnct_GetSocket(), msg);
 
 	while (1) {
 		printf(">>");
@@ -188,7 +188,7 @@ thread_sender(void* args)
 		if (msg[0] == ':') /* Is command */
 			cilent_doCmd(msg + 1);
 		else if (msg[0] != '\0') /* Not empty text */
-			if (cnct_SendMsg(cnct_Getfd(), msg) < 0) {
+			if (cnct_SendMsg(cnct_GetSocket(), msg) < 0) {
 				perror("cnct_SendMsg()");
 				sem_post(&client_shouldDie);
 				pthread_exit(NULL);
@@ -205,7 +205,7 @@ thread_receiver(void* args)
 	int flag;
 
 	while (1) {
-		flag = cnct_RecvMsg(cnct_Getfd(), msg);
+		flag = cnct_RecvMsg(cnct_GetSocket(), msg);
 
 		if (flag == -1) {
 			perror("cnct_RecvMsg()");
