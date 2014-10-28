@@ -19,14 +19,14 @@
 
 #include "connect.h"
 
-static int my_fd;
+static int my_socket;
 static struct sockaddr_un my_addr;
 
 int
 cnct_Init(int domain, char* sockPath)
 {
-	my_fd = socket(domain, SOCK_STREAM, 0);
-	if (my_fd == -1)
+	my_socket = socket(domain, SOCK_STREAM, 0);
+	if (my_socket == -1)
 		return -1;
 
 	memset(&my_addr, 0, sizeof(struct sockaddr_un));
@@ -48,7 +48,7 @@ cnct_Remove()
 int
 cnct_Quit()
 {
-	if (close(my_fd) == -1)
+	if (close(my_socket) == -1)
 		return -1;
 
 	return 0;
@@ -57,7 +57,7 @@ cnct_Quit()
 int
 cnct_Bind()
 {
-	if (bind(my_fd, (struct sockaddr*) &my_addr,
+	if (bind(my_socket, (struct sockaddr*) &my_addr,
 		 sizeof(struct sockaddr_un)) == -1) {
 		return -1;
 	}
@@ -68,7 +68,7 @@ cnct_Bind()
 int
 cnct_Connect()
 {
-	if (connect(my_fd, (struct sockaddr*) &my_addr,
+	if (connect(my_socket, (struct sockaddr*) &my_addr,
 		    sizeof(struct sockaddr_un)) == -1) {
 		return -1;
 	}
@@ -79,7 +79,7 @@ cnct_Connect()
 int
 cnct_Listen(int backlog)
 {
-	if (listen(my_fd, backlog) == -1)
+	if (listen(my_socket, backlog) == -1)
 		return -1;
 
 	return 0;
@@ -95,7 +95,7 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 	else
 		*len = sizeof(*addr);
 
-	peer_fd = accept(my_fd, (struct sockaddr*) addr, len);
+	peer_fd = accept(my_socket, (struct sockaddr*) addr, len);
 	if (peer_fd == -1)
 		return -1;
 
@@ -103,7 +103,7 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 }
 
 int
-cnct_SendMsg(int fd, char* msg)
+cnct_SendMsg(int socket, char* msg)
 {
 	int flag;
 	uint8_t len;
@@ -114,16 +114,16 @@ cnct_SendMsg(int fd, char* msg)
 	 */
 	len = strlen(msg) + 1;
 
-	flag = send(fd, &len, sizeof(len), 0);
+	flag = send(socket, &len, sizeof(len), 0);
 	if (flag <= 0)
 		return flag;
-	flag = send(fd, msg, len, 0);
+	flag = send(socket, msg, len, 0);
 
 	return flag;
 }
 
 int
-cnct_RecvMsg(int fd, char* buf)
+cnct_RecvMsg(int socket, char* buf)
 {
 	int flag;
 	uint8_t len;
@@ -132,16 +132,92 @@ cnct_RecvMsg(int fd, char* buf)
 	 * Read 1 byte data of length of msg
 	 * then read entire msg(include \0)
 	 */
-	flag = recv(fd, &len, sizeof(len), 0);
+	flag = recv(socket, &len, sizeof(len), 0);
 	if (flag <= 0)
 		return flag;
-	flag = recv(fd, buf, len, 0);
+	flag = recv(socket, buf, len, 0);
 
 	return flag;
 }
 
 int
-cnct_Getfd()
+cnct_SendFile(int socket, FILE* fd)
 {
-	return my_fd;
+	char* buf[CONNECT_MAX_BUFFER_SIZE];
+	int flag;
+	uint64_t size;
+	uint32_t w;
+
+	fseek(fd, 0, SEEK_END);
+	size = ftell(fd);
+	fseek(fd, 0, SEEK_SET);
+
+	/*
+	 * Send 8 byte data of size of file
+	 * then send entire file
+	 */
+	flag = send(socket, &size, sizeof(size), 0);
+	if (flag <= 0)
+		return flag;
+
+	while (size) {
+		if (size > CONNECT_MAX_BUFFER_SIZE)
+			w = CONNECT_MAX_BUFFER_SIZE;
+		else
+			w = size;
+
+		fread(buf, 1, w, fd);
+		if (ferror(fd))
+			return -1;
+
+		flag = send(socket, buf, w, 0);
+		if (flag <= 0)
+			return flag;
+
+		size -= w;
+	}
+
+	return flag;
+}
+
+int
+cnct_RecvFile(int socket, FILE* fd)
+{
+	char* buf[CONNECT_MAX_BUFFER_SIZE];
+	int flag;
+	uint64_t size;
+	uint32_t w;
+
+	/*
+	 * Read 8 byte data of size of file
+	 * then read entire file
+	 */
+	flag = recv(socket, &size, sizeof(size), 0);
+	if (flag <= 0)
+		return flag;
+
+	while (size) {
+		if (size > CONNECT_MAX_BUFFER_SIZE)
+			w = CONNECT_MAX_BUFFER_SIZE;
+		else
+			w = size;
+
+		flag = recv(socket, buf, w, 0);
+		if (flag <= 0)
+			return flag;
+
+		fwrite(buf, 1, w, fd);
+		if (ferror(fd))
+			return -1;
+
+		size -= w;
+	}
+
+	return flag;
+}
+
+int
+cnct_GetSocket()
+{
+	return my_socket;
 }

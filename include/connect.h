@@ -31,7 +31,8 @@
 #include <sys/un.h>
 
 /* ===================== Macros ===================== */
-#define CONNECT_MAX_MSG_SIZE 150
+#define CONNECT_MAX_MSG_SIZE 512
+#define CONNECT_MAX_BUFFER_SIZE 16 * 1024
 
 /* ===================== Functions ===================== */
 int cnct_Init(int domain, char* sockPath);
@@ -43,10 +44,12 @@ int cnct_Connect();
 int cnct_Listen(int backlog);
 int cnct_Accept(struct sockaddr* addr, socklen_t* addr_len);
 
-int cnct_SendMsg(int fd, char* msg);
-int test_send(int fd, char* msg);
-int cnct_RecvMsg(int fd, char* buff);
+int cnct_SendMsg(int socket, char* msg);
+int cnct_RecvMsg(int socket, char* buff);
 
-int cnct_Getfd();
+int cnct_SendFile(int socket, FILE* fd);
+int cnct_RecvFile(int socket, FILE* fd);
+
+int cnct_GetSocket();
 
 #endif /* CONNECT_H */
