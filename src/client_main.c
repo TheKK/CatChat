@@ -178,7 +178,7 @@ client_checkConnectPermission()
 void
 client_setName()
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
+	char msg[MAX_NAME_SIZE + 1];
 
 	/* Tell server you name */
 	while (1) {
@@ -246,12 +246,11 @@ client_sendMsgToServer(char* msg)
 void*
 thread_sender(void* args)
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE + 1];
 	int flag;
 
 	client_setName();
 
-	flag = 1;
 	while (1) {
 		fgets(msg, CONNECT_MAX_MSG_SIZE, stdin);
 		remove_next_line_symbol(msg);
@@ -265,6 +264,7 @@ thread_sender(void* args)
 			flag = client_doReq(msg + 1);
 			break;
 		case '\0':	/* no text */
+			flag = 0;
 			break;
 		default:	/* text message */
 			flag = client_sendMsgToServer(msg);

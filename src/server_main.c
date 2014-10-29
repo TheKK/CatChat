@@ -213,7 +213,7 @@ server_tellConnectPermission(int socket)
 int
 server_showOnlineUserTo(int socket)
 {
-	char sendMsg[CONNECT_MAX_MSG_SIZE];
+	char sendMsg[CONNECT_MAX_MSG_SIZE + 1];
 	int i;
 	userlist_info_t* userInfo;
 
@@ -254,7 +254,7 @@ server_addNewUser(int socket, pthread_t tid,
 int
 server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 {
-	char sendMsg[CONNECT_MAX_MSG_SIZE + sizeof(recvMsg)];
+	char sendMsg[CONNECT_MAX_MSG_SIZE + strlen(recvMsg) + 1];
 	int i, flag;
 	userlist_info_t* userInfo;
 
@@ -277,9 +277,9 @@ server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 int
 server_doReq(char* client_name, int client_sock, char* req)
 {
-	char msg[CONNECT_MAX_MSG_SIZE];
-	char tosend[2 * CONNECT_MAX_MSG_SIZE];
-	char name[USERLIST_MAX_NAME_SIZE];
+	char msg[CONNECT_MAX_MSG_SIZE + 1];
+	char tosend[CONNECT_MAX_MSG_SIZE + 1];
+	char name[USERLIST_MAX_NAME_SIZE + 1];
 	userlist_info_t* userInfo;
 
 	/* Command from client */
