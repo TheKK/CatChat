@@ -76,7 +76,7 @@ void remove_next_line_symbol(char* str);
 
 /* ===================== Client commands ===================== */
 int
-cmd_uploadFile(char* filePath)
+cmd_uploadFile(char* fileName)
 {
 	FILE* fd;
 	int flag;
@@ -90,7 +90,7 @@ cmd_uploadFile(char* filePath)
 	 * Step IV:	Done
 	 */
 
-	fd = mdManager_fopen(filePath, "rb");
+	fd = mdManager_fopen(fileName, "rb");
 	if (fd == NULL) {
 		perror("mdManager_fopen()");
 		return -1;
@@ -105,7 +105,7 @@ cmd_uploadFile(char* filePath)
 	}
 
 	/* Step II */
-	flag = cnct_SendMsg(cnct_GetSocket(), filePath);
+	flag = cnct_SendMsg(cnct_GetSocket(), fileName);
 	if (flag <= 0) {
 		perror("cnct_SendMsg()");
 		fclose(fd);
@@ -124,6 +124,11 @@ cmd_uploadFile(char* filePath)
 	fclose(fd);
 
 	return 0;
+}
+
+int
+cmd_downloadFile(char* filePath)
+{
 }
 
 /* ===================== Functions ===================== */
@@ -280,11 +285,9 @@ cilent_doCmd(char* input)
 
 	flag = sscanf(input, "%[^ ]%*c%[^$]", cmd, arg);
 
+	/* Check cmd type */
 	switch (flag) {
-	case 0:		/* nothing */
-		printf(_("[SYSTEM] <:%s> is not a command\n"), input);
-		break;
-	case 1:		/* no argument command */
+	case 1:		/* No argument command */
 		if ((strcmp(cmd, "q") == 0) ||
 		    (strcmp(cmd, "quit") == 0)) {
 
@@ -299,16 +302,11 @@ cilent_doCmd(char* input)
 			printf(_("[SYSTEM] Command <:%s> not found\n"), input);
 		}
 		break;
-	case 2:		/* one argument command */
+	case 2:		/* One argument command */
 		if ((strcmp(cmd, "u") == 0) ||
 		    (strcmp(cmd, "upload") == 0)) {
 
 			cmd_uploadFile(arg);
-
-		} else if ((strcmp(cmd, "d") == 0) ||
-			   (strcmp(cmd, "download") == 0)) {
-
-			printf("nothing to download now\n");
 
 		} else {
 			printf(_("[SYSTEM] Command <:%s> not found\n"), input);
@@ -385,18 +383,50 @@ thread_receiver(void* args)
 {
 	char msg[CONNECT_MAX_MSG_SIZE + 1];
 	int flag;
+	uint32_t type;
+	FILE* fd;
 
 	while (1) {
-		flag = cnct_RecvMsg(cnct_GetSocket(), msg);
-
-		switch (flag) {
-		case -1:	/* Error */
+		flag = cnct_RecvRequestType(cnct_GetSocket(), &type);
+		if (flag <= 0) {
 			perror("cnct_RecvMsg()");
-		case 0:		/* Disconnected */
 			sem_post(&client_shouldDie);
-			break;
-		default:	/* Normal text */
+		}
+
+		switch (type) {
+		case CNCT_TYPE_MSG:
+			flag = cnct_RecvMsg(cnct_GetSocket(), msg);
+			if (flag <= 0) {
+				perror("cnct_RecvMsg()");
+				sem_post(&client_shouldDie);
+			}
+
 			printf("\r%s\n", msg);
+			break;
+		case CNCT_TYPE_FILE:
+			/* File name */
+			flag = cnct_RecvMsg(cnct_GetSocket(), msg);
+			if (flag <= 0) {
+				perror("cnct_RecvMsg()");
+				sem_post(&client_shouldDie);
+			}
+
+			if (mdManager_fileExist(msg))
+				mdManager_rm(msg);
+
+			fd = mdManager_fopen(msg, "wb");
+			if (fd == NULL) {
+				perror("mdManager_fopen()");
+				continue;
+			}
+
+			flag = cnct_RecvFile(cnct_GetSocket(), fd);
+			if (flag <= 0)
+				sem_post(&client_shouldDie);
+
+			printf(_("\r[SYSTEM] File \"%s\" downloaded\n"), msg);
+
+			fclose(fd);
 			break;
 		}
 	}

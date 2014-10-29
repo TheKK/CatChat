@@ -78,6 +78,58 @@ struct job_args
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
 
+/* ===================== Client requests ===================== */
+int
+req_downloadFile(int socket, char* fileName)
+{
+	FILE* fd;
+	int flag;
+
+	/*
+	 * How I send file to client
+	 *
+	 * Step I:	Tell client this is a file transter request
+	 * Step II:	Tell client the name of this file
+	 * Step III:	Send this file to client
+	 * Step IV:	Done
+	 */
+
+	fd = mdManager_fopen(fileName, "rb");
+	if (fd == NULL) {
+		perror("mdManager_fopen()");
+		return -1;
+	}
+
+	/* Step I */
+	flag = cnct_SendRequestType(socket, CNCT_TYPE_FILE);
+	if (flag <= 0) {
+		perror("cnct_SendRequestType()");
+		fclose(fd);
+		return -1;
+	}
+
+	/* Step II */
+	flag = cnct_SendMsg(socket, fileName);
+	if (flag <= 0) {
+		perror("cnct_SendMsg()");
+		fclose(fd);
+		return -1;
+	}
+
+	/* Step III */
+	flag = cnct_SendFile(socket, fd);
+	if (flag <= 0) {
+		perror("cnct_SendFile()");
+		fclose(fd);
+		return -1;
+	}
+
+	/* Step IV */
+	fclose(fd);
+
+	return 0;
+}
+
 /* ===================== Functions ===================== */
 void
 server_showVersion()
@@ -217,13 +269,47 @@ server_showOnlineUserTo(int socket)
 	int i;
 	userlist_info_t* userInfo;
 
+	TRY_OR_RETURN(cnct_SendRequestType(socket,CNCT_TYPE_MSG));
 	TRY_OR_RETURN(cnct_SendMsg(socket, _("====== User list ======")));
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 		sprintf(sendMsg,"%5i %s", i, userInfo->name);
+
+		TRY_OR_RETURN(cnct_SendRequestType(socket,CNCT_TYPE_MSG));
 		TRY_OR_RETURN(cnct_SendMsg(socket, sendMsg));
 	}
+	TRY_OR_RETURN(cnct_SendRequestType(socket,CNCT_TYPE_MSG));
 	TRY_OR_RETURN(cnct_SendMsg(socket, _("====== End ======")));
+
+	return 0;
+}
+
+int
+server_directMsg(char* client_name, int client_sock, char* target_name,
+		 char* msg)
+{
+	char tosend[CONNECT_MAX_MSG_SIZE + 1];
+	userlist_info_t* userInfo;
+
+	userInfo = userlist_findByName(userlist, target_name);
+	if (userInfo) {
+		sprintf(tosend, _("<%s talk to you> %s"),
+			client_name, msg);
+
+		TRY_OR_RETURN(cnct_SendRequestType(userInfo->socket,
+						   CNCT_TYPE_MSG));
+		TRY_OR_RETURN(cnct_SendMsg(userInfo->socket, tosend));
+
+		sprintf(tosend, _("<you talk to %s> %s"),
+			userInfo->name, msg);
+
+		TRY_OR_RETURN(cnct_SendRequestType(client_sock, CNCT_TYPE_MSG));
+		TRY_OR_RETURN(cnct_SendMsg(client_sock, tosend));
+	} else {
+		TRY_OR_RETURN(cnct_SendRequestType(client_sock, CNCT_TYPE_MSG));
+		TRY_OR_RETURN(cnct_SendMsg(client_sock,
+					   _("[SERVER] User not found\n")));
+	}
 
 	return 0;
 }
@@ -262,6 +348,10 @@ server_sendMsgToEveryone(char* msg)
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 
+		flag = cnct_SendRequestType(userInfo->socket, CNCT_TYPE_MSG);
+		if (flag <= 0)
+			return flag;
+
 		flag = cnct_SendMsg(userInfo->socket, msg);
 		if (flag <= 0)
 			return flag;
@@ -273,32 +363,46 @@ server_sendMsgToEveryone(char* msg)
 int
 server_doReq(char* client_name, int client_sock, char* req)
 {
+	char arg[30];
+	char cmd[30];
 	char msg[CONNECT_MAX_MSG_SIZE + 1];
-	char tosend[CONNECT_MAX_MSG_SIZE + 1];
-	char name[USERLIST_MAX_NAME_SIZE + 1];
-	userlist_info_t* userInfo;
+	int flag;
 
-	/* Command from client */
-	if (strcmp(req, "users") == 0) {	/* Check online users */
-		TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
+	flag = sscanf(req, "%[^ ]%*c%[^$]", cmd, arg);
 
-	} else if (sscanf(req, "%[^ ]%*c%[^$]", name, msg) == 2) {	/* DM */
-		userInfo = userlist_findByName(userlist, name);
-		if (userInfo) {
-			sprintf(tosend, _("<%s talk to you> %s"),
-				client_name, msg);
-			cnct_SendMsg(userInfo->socket, tosend);
-
-			sprintf(tosend, _("<you talk to %s> %s"),
-				userInfo->name, msg);
-			cnct_SendMsg(client_sock, tosend);
+	/* Check req type */
+	switch (flag) {
+	case 1:
+		if (strcmp(req, "users") == 0) {/* Check online users */
+			TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
 		} else {
-			cnct_SendMsg(client_sock,
-				     _("[SERVER] User not found\n"));
+			sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"),
+				req);
+
+			TRY_OR_RETURN(cnct_SendRequestType(client_sock,
+							   CNCT_TYPE_MSG));
+			TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
 		}
-	} else {
-		sprintf(msg, _("[SYSTEM] Request <\\%s> not found\n"), req);
+		break;
+	case 2:
+		if (strcmp(cmd, "download") == 0) {
+			req_downloadFile(client_sock, arg);
+
+		} else {
+			sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"),
+				req);
+
+			TRY_OR_RETURN(cnct_SendRequestType(client_sock,
+							   CNCT_TYPE_MSG));
+			TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
+		}
+		break;
+	default:
+		sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"), req);
+
+		TRY_OR_RETURN(cnct_SendRequestType(client_sock, CNCT_TYPE_MSG));
 		TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
+		break;
 	}
 
 	return 0;
