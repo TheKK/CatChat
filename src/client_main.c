@@ -54,6 +54,14 @@
 		} \
 	} while(0);
 
+#define CHECK_TRANS_FLAG(cmd); \
+	do { \
+		if (cmd <= 0) { \
+			perror(#cmd); \
+			return -1; \
+		} \
+	} while(0);
+
 #define _(STRING) gettext(STRING)
 
 /* ===================== Global variables ===================== */
@@ -65,6 +73,78 @@ sem_t client_connected;
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
 void remove_next_line_symbol(char* str);
+
+/* ===================== Client commands ===================== */
+int
+cmd_uploadFile(char* filePath)
+{
+	FILE* fd;
+	char permission[2];
+	int flag;
+
+	/*
+	 * How I send file to server
+	 *
+	 * Step I:	Tell server this is a file transter request
+	 * Step II:	Tell server the name of this file
+	 * Step III	Wait server to tell you if it allow you to send
+	 *
+	 * 		[if allow]
+	 * Step IV:	Send this file to server
+	 * 		Done
+	 *
+	 * 		[if disallow]
+	 * Step IV':	Done?
+	 */
+
+	fd = mdManager_fopen(filePath, "rb");
+	if (fd == NULL) {
+		perror("mdManager_fopen()");
+		return -1;
+	}
+
+	/* Step I */
+	flag = cnct_SendRequestType(cnct_GetSocket(), CNCT_TYPE_FILE);
+	if (flag <= 0) {
+		perror("cnct_SendRequestType()");
+		fclose(fd);
+		return -1;
+	}
+
+	/* Step II */
+	flag = cnct_SendMsg(cnct_GetSocket(), filePath);
+	if (flag <= 0) {
+		perror("cnct_SendMsg()");
+		fclose(fd);
+		return -1;
+	}
+
+	/* Step III */
+	flag = cnct_RecvMsg(cnct_GetSocket(), permission);
+	if (permission[0] == 'y') {		/* Yes, you can upload */
+		/* Step IV */
+		flag = cnct_SendFile(cnct_GetSocket(), fd);
+		if (flag <= 0) {
+			perror("cnct_SendFile()");
+			fclose(fd);
+			return -1;
+		}
+
+		printf(_("[SYSTEM] File \"%s\" uploaded\n"), filePath);
+
+	/* Step IV' */
+	} else if (permission[0] == 'n') {	/* NO, you can't upload */
+		printf(_("[SYSTEM] File \"%s\" has exist on server, "
+			 "maybe you can change a name and try again\n"),
+		       filePath);
+	} else {
+		printf(_("[SYSTEM] You should not got here!!!\n"));
+	}
+
+	fclose(fd);
+
+	return 0;
+}
 
 /* ===================== Functions ===================== */
 void
@@ -212,14 +292,53 @@ remove_next_line_symbol(char* str)
 }
 
 int
-cilent_doCmd(char* cmd)
+cilent_doCmd(char* input)
 {
-	if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0)
-		sem_post(&client_shouldDie);
-	else if (strcmp(cmd, "h") == 0|| strcmp(cmd, "help") == 0)
-		printf(_("Help page work in progress\n"));
-	else
-		printf(_("[SYSTEM] Command <:%s> not found\n"), cmd);
+	int flag;
+	char cmd[30];
+	char arg[30];
+
+	flag = sscanf(input, "%[^ ]%*c%[^$]", cmd, arg);
+
+	switch (flag) {
+	case 0:		/* nothing */
+		printf(_("[SYSTEM] <:%s> is not a command\n"), input);
+		break;
+	case 1:		/* no argument command */
+		if ((strcmp(cmd, "q") == 0) ||
+		    (strcmp(cmd, "quit") == 0)) {
+
+			sem_post(&client_shouldDie);
+
+		} else if ((strcmp(cmd, "h") == 0)||
+			   (strcmp(cmd, "help") == 0)) {
+
+			printf(_("Help page work in progress\n"));
+
+		} else {
+			printf(_("[SYSTEM] Command <:%s> not found\n"), input);
+		}
+		break;
+	case 2:		/* one argument command */
+		if ((strcmp(cmd, "u") == 0) ||
+		    (strcmp(cmd, "upload") == 0)) {
+
+			cmd_uploadFile(arg);
+
+		} else if ((strcmp(cmd, "d") == 0) ||
+			   (strcmp(cmd, "download") == 0)) {
+
+			printf("nothing to download now\n");
+
+		} else {
+			printf(_("[SYSTEM] Command <:%s> not found\n"), input);
+		}
+		break;
+	default:
+		printf(_("[SYSTEM] <:%s> is not a command\n"), input);
+		break;
+	}
+
 
 	return 0;
 }

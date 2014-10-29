@@ -285,7 +285,7 @@ server_doReq(char* client_name, int client_sock, char* req)
 	/* Command from client */
 	if (strcmp(req, "users") == 0) {			/* /user */
 		TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
-	} else if (sscanf(req, "%[^ ]%[^$]", name, msg) == 2) {	/* DM */
+	} else if (sscanf(req, "%[^ ]%*c%[^$]", name, msg) == 2) {	/* DM */
 		userInfo = userlist_findByName(userlist, name);
 		if (userInfo) {
 			sprintf(tosend, _("<%s talk to you> %s\n"),
@@ -312,6 +312,7 @@ void*
 thread_clientGreeter(void* args)
 {
 	/* TODO: User char pointer rather array of char */
+	FILE* fd;
 	char name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
 	int client_sock, flag, client_is_alive;
@@ -336,19 +337,50 @@ thread_clientGreeter(void* args)
 		switch (type) {
 		case CNCT_TYPE_MSG:
 			flag = cnct_RecvMsg(client_sock, recvMsg);
-			server_sendMsgToEveryone(name, client_sock,
-						 recvMsg);
+			if (flag <= 0) {
+				client_is_alive = 0;
+				continue;
+			}
+
+			server_sendMsgToEveryone(name, client_sock, recvMsg);
 			break;
 		case CNCT_TYPE_REQ:
 			flag = cnct_RecvMsg(client_sock, recvMsg);
+			if (flag <= 0) {
+				client_is_alive = 0;
+				continue;
+			}
+
 			server_doReq(name, client_sock, recvMsg);
 			break;
-		case CNCT_TYPE_FILE:
+		case CNCT_TYPE_FILE: /* TODO clean!!!!!!! */
+			/* Name of file */
+			flag = cnct_RecvMsg(client_sock, recvMsg);
+			if (flag <= 0) {
+				client_is_alive = 0;
+				continue;
+			}
+
+			if (mdManager_fileExist(recvMsg))
+				cnct_SendMsg(client_sock, "n");
+			else
+				cnct_SendMsg(client_sock, "y");
+
+			/* Start receive file */
+			fd = mdManager_fopen(recvMsg, "wb");
+			if (fd == NULL) {
+				perror("mdManager_fopen()");
+				continue;
+			}
+
+			flag = cnct_RecvFile(client_sock, fd);
+			if (flag <= 0) {
+				client_is_alive = 0;
+				continue;
+			}
+
+			fclose(fd);
 			break;
-		}
-		if (flag <= 0) {
-			client_is_alive = 0;
-			continue;
 		}
 
 		/* Check if you cast the spell your grandma told you... */

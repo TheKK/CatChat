@@ -188,6 +188,8 @@ cnct_RecvFile(int socket, FILE* fd)
 	uint64_t size;
 	uint32_t w;
 
+	fseek(fd, 0, SEEK_SET);
+
 	/*
 	 * Read 8 byte data of size of file
 	 * then read entire file

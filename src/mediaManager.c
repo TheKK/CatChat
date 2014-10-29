@@ -105,6 +105,9 @@ mdManager_fopen(const char* fileName, const char* mode)
 	char path[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(fileName)];
 	FILE* fd;
 
+	sprintf(path, "%s/%s", g_basePath, fileName);
+	printf("path: %s\n", path);
+
 	fd = fopen(path, mode);
 	if (!fd)
 		return NULL;
@@ -113,7 +116,7 @@ mdManager_fopen(const char* fileName, const char* mode)
 }
 
 int
-mdManager_ifFileExist(const char* filePath)
+mdManager_fileExist(const char* filePath)
 {
 	FILE* input;
 	char fullPath[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(filePath)];
