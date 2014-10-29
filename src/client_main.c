@@ -65,10 +65,11 @@
 #define _(STRING) gettext(STRING)
 
 /* ===================== Global variables ===================== */
-char* sock_path;
-pthread_t sender_t, receiver_t;
-sem_t client_shouldDie;
-sem_t client_connected;
+static char* ip_addr;
+static int port;
+static pthread_t sender_t, receiver_t;
+static sem_t client_shouldDie;
+static sem_t client_connected;
 
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
@@ -137,7 +138,7 @@ void
 client_showHelp()
 {
 	printf(_("CatChat client usage:"
-		 "[-d socket dir][-v version][-h help]\n"));
+		 "[-i ip address][-p port][-v version][-h help]\n"));
 }
 
 void
@@ -145,13 +146,17 @@ client_getopt(int argc, char* argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "d:p:vh")) != -1) {
+	/* Default */
+	ip_addr = NULL;
+	port = 2525;
+
+	while ((opt = getopt(argc, argv, "i:p:vh")) != -1) {
 		switch (opt) {
-		case 'd':
-			sock_path = optarg;
+		case 'i':
+			ip_addr = optarg;
 			break;
 		case 'p':
-			printf(_("WIP\n"));
+			port = atoi(optarg);
 			break;
 		case 'v':
 			client_showVersion();
@@ -200,7 +205,7 @@ client_init()
 
 	/* Initialize socket stuffs */
 	printf(_("\r[SYSTEM] Initializing...\n"));
-	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
+	TRY_OR_RETURN(cnct_Init(PF_INET, NULL, ip_addr, port));
 
 	return 0;
 }
@@ -467,10 +472,6 @@ main(int argc, char* argv[])
 	client_l10nInit();
 
 	client_getopt(argc, argv);
-	if (sock_path == NULL) {
-		client_showHelp();
-		return EXIT_FAILURE;
-	}
 
 	TRY_OR_EXIT(client_init());
 

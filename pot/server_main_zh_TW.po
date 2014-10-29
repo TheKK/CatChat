@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-10-30 00:51+0800\n"
-"PO-Revision-Date: 2014-10-30 00:59+0800\n"
+"POT-Creation-Date: 2014-10-30 02:13+0800\n"
+"PO-Revision-Date: 2014-10-30 02:16+0800\n"
 "Last-Translator: Ying-Ruei Liang  <thumbd03803@gmail.com>\n"
 "Language-Team: \n"
 "Language: zh_TW\n"
@@ -18,98 +18,98 @@ msgstr ""
 "X-Generator: Poedit 1.6.10\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: src/server_main.c:138
+#: src/server_main.c:139
 #, c-format
 msgid "CatChat server (OS homework) 0.11\n"
 msgstr "CatChat(貓聊) 伺服器 (作業系統作業) 0.11\n"
 
-#: src/server_main.c:144
+#: src/server_main.c:145
 #, c-format
 msgid ""
-"CatChat server Usage: [-d socket dir][-m max client number][-v version][-h "
-"help]\n"
+"CatChat server Usage: [-i ip address][-p port][-m max client number][-v "
+"version][-h help]\n"
 msgstr ""
-"CatChat(貓聊) 伺服器 用法: [-d socket 位置][-m 最大在線人數][-v 版本][-h 幫"
-"助]\n"
+"CatChat(貓聊) 伺服器 用法: [-i ip 位置][-p 埠號][-m 最大客戶數目][-v 版本][-"
+"h 幫助]\n"
 
-#: src/server_main.c:199
+#: src/server_main.c:204
 #, c-format
 msgid "\r[SYSTEM] userlist_create() falied\n"
 msgstr "\r[系統] userlist_create() 失敗\n"
 
-#: src/server_main.c:210
+#: src/server_main.c:215
 #, c-format
 msgid "\r[SYSTEM] Init system...\n"
 msgstr "\r[系統] 系統初始化中...\n"
 
-#: src/server_main.c:213
+#: src/server_main.c:218
 #, c-format
 msgid "\r[SYSTEM] Binding...\n"
 msgstr "\r[系統] 連接中...\n"
 
-#: src/server_main.c:216
+#: src/server_main.c:221
 #, c-format
 msgid "\r[SYSTEM] Listening...\n"
 msgstr "\r[系統] 傾聽中...\n"
 
-#: src/server_main.c:233
+#: src/server_main.c:238
 #, c-format
 msgid "\r[SYSTEM] Quit...\n"
 msgstr "\r[系統] 正在離開...\n"
 
-#: src/server_main.c:274
+#: src/server_main.c:278
 msgid "====== User list ======"
 msgstr "====== 用戶列表 ======"
 
-#: src/server_main.c:283
+#: src/server_main.c:287
 msgid "====== End ======"
 msgstr "====== 頁尾 ======"
 
-#: src/server_main.c:297
+#: src/server_main.c:301
 #, c-format
 msgid "<%s talk to you> %s"
 msgstr "<%s 跟您說> %s"
 
-#: src/server_main.c:304
+#: src/server_main.c:308
 #, c-format
 msgid "<you talk to %s> %s"
 msgstr "<您告訴 %s> %s"
 
-#: src/server_main.c:312
+#: src/server_main.c:316
 msgid "[SERVER] User not found\n"
 msgstr "[伺服器] 找不到該名用戶\n"
 
-#: src/server_main.c:337
+#: src/server_main.c:341
 #, c-format
 msgid "\r[INFO] Client %s connected: peer_socket = %d\n"
 msgstr "\r[資訊] 客戶 %s 已連線: peer_socket = %d\n"
 
-#: src/server_main.c:339
+#: src/server_main.c:343
 #, c-format
 msgid "\r[SERVER] User %s connected"
 msgstr "\r[伺服器] 使用者 %s 已連線"
 
-#: src/server_main.c:383 src/server_main.c:399 src/server_main.c:408
+#: src/server_main.c:387 src/server_main.c:403 src/server_main.c:412
 #, c-format
 msgid "[SYSTEM] Request </%s> not found"
 msgstr "[系統] 請求 </%s> 不存在"
 
-#: src/server_main.c:490
+#: src/server_main.c:494
 #, c-format
 msgid "\r[SERVER] File \"%s\" uploaded"
 msgstr "\r[伺服器] 檔案 \"%s\" 上傳成功"
 
-#: src/server_main.c:500
+#: src/server_main.c:504
 #, c-format
 msgid "\rMy eye!!! My EYEEEEEEE!!!\n"
 msgstr "\r我的眼睛!!! 我的眼睛啊啊啊啊啊!!!\n"
 
-#: src/server_main.c:509
+#: src/server_main.c:513
 #, c-format
 msgid "\r[INFO] Client %s disconnected: peer_socket = %d\n"
 msgstr "\r[資訊] 客戶 %s 已離線: peer_socket = %d\n"
 
-#: src/server_main.c:512
+#: src/server_main.c:516
 #, c-format
 msgid "\r[SERVER] User %s disconnected"
 msgstr "\r[伺服器] 使用者 %s 已離線"

@@ -62,7 +62,8 @@
 #define _(STRING) gettext(STRING)
 
 /* ===================== Global variables ===================== */
-static char* sock_path;
+static char* ip_addr;
+static int port;
 static pthread_t accepter_t;
 static pthread_mutex_t sendMutex = PTHREAD_MUTEX_INITIALIZER;
 static sem_t server_shouldDie;
@@ -141,7 +142,7 @@ server_showVersion()
 void
 server_showHelp()
 {
-	printf(_("CatChat server Usage: [-d socket dir]"
+	printf(_("CatChat server Usage: [-i ip address][-p port]"
 		 "[-m max client number][-v version][-h help]\n"));
 }
 
@@ -151,13 +152,17 @@ server_getopt(int argc, char* argv[])
 	int opt;
 
 	/* Default */
-	sock_path = NULL;
+	ip_addr = NULL;
+	port = 2525;
 	max_user_count = 2;
 
-	while ((opt = getopt(argc, argv, "d:m:vh")) != -1) {
+	while ((opt = getopt(argc, argv, "i:p:m:vh")) != -1) {
 		switch (opt) {
-		case 'd':
-			sock_path = optarg;
+		case 'i':
+			ip_addr = optarg;
+			break;
+		case 'p':
+			port = atoi(optarg);
 			break;
 		case 'm':
 			max_user_count = atoi(optarg);
@@ -208,7 +213,7 @@ server_init()
 
 	/* Initialization socket stuffs */
 	printf(_("\r[SYSTEM] Init system...\n"));
-	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
+	TRY_OR_RETURN(cnct_Init(PF_INET, NULL, ip_addr, port));
 
 	printf(_("\r[SYSTEM] Binding...\n"));
 	TRY_OR_RETURN(cnct_Bind());
@@ -232,7 +237,6 @@ server_quit()
 
 	printf(_("\r[SYSTEM] Quit...\n"));
 	TRY_OR_EXIT(cnct_Quit());
-	TRY_OR_EXIT(cnct_Remove());
 }
 
 int
@@ -564,10 +568,6 @@ main(int argc, char* argv[])
 	server_l10nInit();
 
 	server_getopt(argc, argv);
-	if (sock_path == NULL) {
-		server_showHelp();
-		return EXIT_FAILURE;
-	}
 
 	TRY_OR_EXIT(server_init());
 

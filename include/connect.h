@@ -21,14 +21,16 @@
 #define CONNECT_H
 
 /* ===================== Headers ===================== */
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 /* ===================== Macros ===================== */
 #define CONNECT_MAX_MSG_SIZE 512
@@ -43,8 +45,7 @@ typedef enum
 } cnct_type;
 
 /* ===================== Functions ===================== */
-int cnct_Init(int domain, char* sockPath);
-int cnct_Remove();
+int cnct_Init(int domain, char* sockPath, char* ip, int port);
 int cnct_Quit();
 
 int cnct_Bind();

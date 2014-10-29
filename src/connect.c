@@ -19,28 +19,38 @@
 
 #include "connect.h"
 
-static int my_socket;
-static struct sockaddr_un my_addr;
+static int g_socketFd;
+static int g_domain;
+static struct sockaddr_un g_sockaddr_un;
+static struct sockaddr_in g_sockaddr_in;
 
 int
-cnct_Init(int domain, char* sockPath)
+cnct_Init(int domain, char* sockPath, char* ip, int port)
 {
-	my_socket = socket(domain, SOCK_STREAM, 0);
-	if (my_socket == -1)
+	g_domain = domain;
+
+	g_socketFd = socket(g_domain, SOCK_STREAM, 0);
+	if (g_socketFd == -1)
 		return -1;
 
-	memset(&my_addr, 0, sizeof(struct sockaddr_un));
-	my_addr.sun_family = domain;
-	strcpy(my_addr.sun_path, sockPath);
+	switch (g_domain) {
+	case PF_INET:
+		g_sockaddr_in.sin_family = AF_INET;
 
-	return 0;
-}
+		/* Default value */
+		if (ip == NULL)
+			inet_aton("INADDR_LOOPBACK", &(g_sockaddr_in.sin_addr));
+		else
+			inet_aton(ip, &(g_sockaddr_in.sin_addr));
 
-int
-cnct_Remove()
-{
-	if (remove(my_addr.sun_path) == -1)
-		return -1;
+		g_sockaddr_in.sin_port = htons(port);
+		break;
+	case PF_LOCAL:
+		memset(&g_sockaddr_un, 0, sizeof(struct sockaddr_un));
+		g_sockaddr_un.sun_family = g_domain;
+		strcpy(g_sockaddr_un.sun_path, sockPath);
+		break;
+	}
 
 	return 0;
 }
@@ -48,7 +58,7 @@ cnct_Remove()
 int
 cnct_Quit()
 {
-	if (close(my_socket) == -1)
+	if (close(g_socketFd) == -1)
 		return -1;
 
 	return 0;
@@ -57,9 +67,19 @@ cnct_Quit()
 int
 cnct_Bind()
 {
-	if (bind(my_socket, (struct sockaddr*) &my_addr,
-		 sizeof(struct sockaddr_un)) == -1) {
-		return -1;
+	switch (g_domain) {
+	case PF_INET:
+		if (bind(g_socketFd, (struct sockaddr*) &g_sockaddr_in,
+			 sizeof(struct sockaddr_in)) == -1) {
+			return -1;
+		}
+		break;
+	case PF_LOCAL:
+		if (bind(g_socketFd, (struct sockaddr*) &g_sockaddr_un,
+			 sizeof(struct sockaddr_un)) == -1) {
+			return -1;
+		}
+		break;
 	}
 
 	return 0;
@@ -68,9 +88,19 @@ cnct_Bind()
 int
 cnct_Connect()
 {
-	if (connect(my_socket, (struct sockaddr*) &my_addr,
-		    sizeof(struct sockaddr_un)) == -1) {
-		return -1;
+	switch (g_domain) {
+	case PF_INET:
+		if (connect(g_socketFd, (struct sockaddr*) &g_sockaddr_in,
+			    sizeof(struct sockaddr_in)) == -1) {
+			return -1;
+		}
+		break;
+	case PF_LOCAL:
+		if (connect(g_socketFd, (struct sockaddr*) &g_sockaddr_un,
+			    sizeof(struct sockaddr_un)) == -1) {
+			return -1;
+		}
+		break;
 	}
 
 	return 0;
@@ -79,7 +109,7 @@ cnct_Connect()
 int
 cnct_Listen(int backlog)
 {
-	if (listen(my_socket, backlog) == -1)
+	if (listen(g_socketFd, backlog) == -1)
 		return -1;
 
 	return 0;
@@ -95,7 +125,7 @@ cnct_Accept(struct sockaddr* addr, socklen_t* len)
 	else
 		*len = sizeof(*addr);
 
-	peer_fd = accept(my_socket, (struct sockaddr*) addr, len);
+	peer_fd = accept(g_socketFd, (struct sockaddr*) addr, len);
 	if (peer_fd == -1)
 		return -1;
 
@@ -241,5 +271,5 @@ cnct_RecvRequestType(int socket, cnct_type* type)
 int
 cnct_GetSocket()
 {
-	return my_socket;
+	return g_socketFd;
 }

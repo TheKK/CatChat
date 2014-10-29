@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-10-30 00:51+0800\n"
+"POT-Creation-Date: 2014-10-30 02:13+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,96 +17,96 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/server_main.c:138
+#: src/server_main.c:139
 #, c-format
 msgid "CatChat server (OS homework) 0.11\n"
 msgstr ""
 
-#: src/server_main.c:144
+#: src/server_main.c:145
 #, c-format
 msgid ""
-"CatChat server Usage: [-d socket dir][-m max client number][-v version][-h "
-"help]\n"
+"CatChat server Usage: [-i ip address][-p port][-m max client number][-v "
+"version][-h help]\n"
 msgstr ""
 
-#: src/server_main.c:199
+#: src/server_main.c:204
 #, c-format
 msgid "\r[SYSTEM] userlist_create() falied\n"
 msgstr ""
 
-#: src/server_main.c:210
+#: src/server_main.c:215
 #, c-format
 msgid "\r[SYSTEM] Init system...\n"
 msgstr ""
 
-#: src/server_main.c:213
+#: src/server_main.c:218
 #, c-format
 msgid "\r[SYSTEM] Binding...\n"
 msgstr ""
 
-#: src/server_main.c:216
+#: src/server_main.c:221
 #, c-format
 msgid "\r[SYSTEM] Listening...\n"
 msgstr ""
 
-#: src/server_main.c:233
+#: src/server_main.c:238
 #, c-format
 msgid "\r[SYSTEM] Quit...\n"
 msgstr ""
 
-#: src/server_main.c:274
+#: src/server_main.c:278
 msgid "====== User list ======"
 msgstr ""
 
-#: src/server_main.c:283
+#: src/server_main.c:287
 msgid "====== End ======"
 msgstr ""
 
-#: src/server_main.c:297
+#: src/server_main.c:301
 #, c-format
 msgid "<%s talk to you> %s"
 msgstr ""
 
-#: src/server_main.c:304
+#: src/server_main.c:308
 #, c-format
 msgid "<you talk to %s> %s"
 msgstr ""
 
-#: src/server_main.c:312
+#: src/server_main.c:316
 msgid "[SERVER] User not found\n"
 msgstr ""
 
-#: src/server_main.c:337
+#: src/server_main.c:341
 #, c-format
 msgid "\r[INFO] Client %s connected: peer_socket = %d\n"
 msgstr ""
 
-#: src/server_main.c:339
+#: src/server_main.c:343
 #, c-format
 msgid "\r[SERVER] User %s connected"
 msgstr ""
 
-#: src/server_main.c:383 src/server_main.c:399 src/server_main.c:408
+#: src/server_main.c:387 src/server_main.c:403 src/server_main.c:412
 #, c-format
 msgid "[SYSTEM] Request </%s> not found"
 msgstr ""
 
-#: src/server_main.c:490
+#: src/server_main.c:494
 #, c-format
 msgid "\r[SERVER] File \"%s\" uploaded"
 msgstr ""
 
-#: src/server_main.c:500
+#: src/server_main.c:504
 #, c-format
 msgid "\rMy eye!!! My EYEEEEEEE!!!\n"
 msgstr ""
 
-#: src/server_main.c:509
+#: src/server_main.c:513
 #, c-format
 msgid "\r[INFO] Client %s disconnected: peer_socket = %d\n"
 msgstr ""
 
-#: src/server_main.c:512
+#: src/server_main.c:516
 #, c-format
 msgid "\r[SERVER] User %s disconnected"
 msgstr ""
