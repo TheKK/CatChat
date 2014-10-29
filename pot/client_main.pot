@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-10-29 14:10+0800\n"
+"POT-Creation-Date: 2014-10-30 00:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,77 +17,102 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/client_main.c:73
+#: src/client_main.c:133
 #, c-format
 msgid "CatChat client (OS homework) 0.11\n"
 msgstr ""
 
-#: src/client_main.c:79
+#: src/client_main.c:139
 #, c-format
-msgid "CatChat client usage: [-d socket dir][-v version][-h help]\n"
+msgid "CatChat client usage:[-d socket dir][-v version][-h help]\n"
 msgstr ""
 
-#: src/client_main.c:93
+#: src/client_main.c:154
 #, c-format
 msgid "WIP\n"
 msgstr ""
 
-#: src/client_main.c:140
+#: src/client_main.c:201
 #, c-format
 msgid "\r[SYSTEM] Initializing...\n"
 msgstr ""
 
-#: src/client_main.c:160
+#: src/client_main.c:221
 #, c-format
 msgid "\r[SYSTEM] Quit...\n"
 msgstr ""
 
-#: src/client_main.c:185
+#: src/client_main.c:246
 #, c-format
-msgid "[SERVER] What is you name: "
+msgid "[SYSTEM] What is you name: "
 msgstr ""
 
-#: src/client_main.c:196
+#: src/client_main.c:252
 #, c-format
-msgid "[SERVER] This name has been uesed, use another\n"
+msgid "[SYSTEM] Space is not allowed, try again\n"
 msgstr ""
 
-#: src/client_main.c:220
+#: src/client_main.c:255
+#, c-format
+msgid "[SYSTEM] You type nothing, try again\n"
+msgstr ""
+
+#: src/client_main.c:266
+#, c-format
+msgid "[SYSTEM] This name has been uesed, use another\n"
+msgstr ""
+
+#: src/client_main.c:304
 #, c-format
 msgid "Help page work in progress\n"
 msgstr ""
 
-#: src/client_main.c:222
+#: src/client_main.c:307 src/client_main.c:317
 #, c-format
 msgid "[SYSTEM] Command <:%s> not found\n"
 msgstr ""
 
-#: src/client_main.c:315
+#: src/client_main.c:321
+#, c-format
+msgid "[SYSTEM] <:%s> is not a command\n"
+msgstr ""
+
+#: src/client_main.c:432
+#, c-format
+msgid "\r[SYSTEM] File \"%s\" downloaded\n"
+msgstr ""
+
+#: src/client_main.c:449
 #, c-format
 msgid "\r[SYSTEM] Disconnected...\n"
 msgstr ""
 
-#: src/client_main.c:319
+#: src/client_main.c:453
 #, c-format
 msgid "\r[SYSTEM] To exit CatChat, please type :q<Enter>\n"
 msgstr ""
 
-#: src/client_main.c:322
+#: src/client_main.c:456
 #, c-format
 msgid "\rTeaching you, is hard...(noise)\n"
 msgstr ""
 
-#: src/client_main.c:323
+#: src/client_main.c:457
 #, c-format
 msgid "\rSo you know what? You win, just go...(beep)\n"
 msgstr ""
 
-#: src/client_main.c:342
+#: src/client_main.c:476
 #, c-format
 msgid "\r[SYSTEM] Connecting...\n"
 msgstr ""
 
-#: src/client_main.c:346
+#: src/client_main.c:480
 #, c-format
 msgid "\r[SYSTEM] Connected!!\n"
+msgstr ""
+
+#: src/client_main.c:492
+#, c-format
+msgid "\r[SERVER] Chat room full, try again later\n"
 msgstr ""

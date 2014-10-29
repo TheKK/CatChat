@@ -77,6 +77,7 @@ struct job_args
 
 /* ===================== Prototypes ===================== */
 void sig_handler(int signum, siginfo_t* info, void* ptr);
+int server_sendMsgToEveryone(char* msg);
 
 /* ===================== Client requests ===================== */
 int
@@ -141,7 +142,7 @@ void
 server_showHelp()
 {
 	printf(_("CatChat server Usage: [-d socket dir]"
-	       "[-m max client number][-v version][-h help]\n"));
+		 "[-m max client number][-v version][-h help]\n"));
 }
 
 void
@@ -318,6 +319,8 @@ void
 server_addNewUser(int socket, pthread_t tid,
 		  char name[USERLIST_MAX_NAME_SIZE + 1])
 {
+	char sendMsg[CONNECT_MAX_MSG_SIZE + 1];
+
 	/* Receive name from client */
 	while (1) {
 		cnct_RecvMsg(socket, name);
@@ -333,6 +336,9 @@ server_addNewUser(int socket, pthread_t tid,
 
 	printf(_("\r[INFO] Client %s connected: peer_socket = %d\n"),
 	       name, socket);
+	sprintf(sendMsg, _("\r[SERVER] User %s connected"), name);
+
+	server_sendMsgToEveryone(sendMsg);
 
 	userlist_add(userlist, socket, tid, name);
 }
@@ -343,8 +349,6 @@ server_sendMsgToEveryone(char* msg)
 	int i, flag;
 	userlist_info_t* userInfo;
 
-	/* Server log? */
-	printf(_("\r[Client] %s\n"), msg);
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 
@@ -376,7 +380,7 @@ server_doReq(char* client_name, int client_sock, char* req)
 		if (strcmp(req, "users") == 0) {/* Check online users */
 			TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
 		} else {
-			sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"),
+			sprintf(msg,_("[SYSTEM] Request </%s> not found"),
 				req);
 
 			TRY_OR_RETURN(cnct_SendRequestType(client_sock,
@@ -388,8 +392,11 @@ server_doReq(char* client_name, int client_sock, char* req)
 		if (strcmp(cmd, "download") == 0) {
 			req_downloadFile(client_sock, arg);
 
+		} else if (userlist_findByName(userlist, cmd)) {
+			server_directMsg(client_name, client_sock, cmd, arg);
+
 		} else {
-			sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"),
+			sprintf(msg,_("[SYSTEM] Request </%s> not found"),
 				req);
 
 			TRY_OR_RETURN(cnct_SendRequestType(client_sock,
@@ -398,7 +405,7 @@ server_doReq(char* client_name, int client_sock, char* req)
 		}
 		break;
 	default:
-		sprintf(msg,_("[SYSTEM] Request <\\%s> not found\n"), req);
+		sprintf(msg,_("[SYSTEM] Request </%s> not found"), req);
 
 		TRY_OR_RETURN(cnct_SendRequestType(client_sock, CNCT_TYPE_MSG));
 		TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
@@ -497,9 +504,14 @@ thread_clientGreeter(void* args)
 		}
 	}
 
-	printf(_("\r[INFO] Client disconnected: socket = %d\n"), client_sock);
-
 	userlist_remove(userlist, client_name);
+
+	printf(_("\r[INFO] Client %s disconnected: peer_socket = %d\n"),
+	       client_name, client_sock);
+
+	sprintf(sendMsg, _("\r[SERVER] User %s disconnected"), client_name);
+	server_sendMsgToEveryone(sendMsg);
+
 	close(client_sock);
 
 	return NULL;

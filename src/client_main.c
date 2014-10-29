@@ -126,11 +126,6 @@ cmd_uploadFile(char* fileName)
 	return 0;
 }
 
-int
-cmd_downloadFile(char* filePath)
-{
-}
-
 /* ===================== Functions ===================== */
 void
 client_showVersion()
@@ -141,7 +136,8 @@ client_showVersion()
 void
 client_showHelp()
 {
-	printf(_("CatChat client usage: [-d socket dir][-v version][-h help]\n"));
+	printf(_("CatChat client usage:"
+		 "[-d socket dir][-v version][-h help]\n"));
 }
 
 void
@@ -163,6 +159,7 @@ client_getopt(int argc, char* argv[])
 		case '?':
 		default:
 			client_showHelp();
+			exit(0);
 			break;
 		}
 	}
@@ -247,9 +244,18 @@ client_setName()
 
 	/* Tell server you name */
 	while (1) {
-		printf(_("[SERVER] What is you name: "));
+		printf(_("[SYSTEM] What is you name: "));
 		fgets(msg, MAX_NAME_SIZE, stdin);
 		remove_next_line_symbol(msg);
+
+		/* Bad name */
+		if (strstr(msg, " ")) {
+			printf(_("[SYSTEM] Space is not allowed, try again\n"));
+			continue;
+		} else if (msg[0] == '\0') {
+			printf(_("[SYSTEM] You type nothing, try again\n"));
+			continue;
+		}
 
 		cnct_SendMsg(cnct_GetSocket(), msg);
 		cnct_RecvMsg(cnct_GetSocket(), msg);
@@ -258,7 +264,7 @@ client_setName()
 			break;
 		}
 		else if (strcmp(msg, "n") == 0) {
-			printf(_("[SERVER] This name has been uesed, "
+			printf(_("[SYSTEM] This name has been uesed, "
 				 "use another\n"));
 		}
 	}
@@ -463,7 +469,7 @@ main(int argc, char* argv[])
 	client_getopt(argc, argv);
 	if (sock_path == NULL) {
 		client_showHelp();
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	TRY_OR_EXIT(client_init());
@@ -483,6 +489,8 @@ main(int argc, char* argv[])
 			       NULL);
 
 		sem_wait(&client_shouldDie);
+	} else {
+		printf(_("\r[SERVER] Chat room full, try again later\n"));
 	}
 
 	/* Clean these mess and quit */
