@@ -1,0 +1,94 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-10-29 14:10+0800\n"
+"PO-Revision-Date: 2014-10-29 14:10+0800\n"
+"Last-Translator: Ying-Ruei Liang  <thumbd03803@gmail.com>\n"
+"Language-Team: \n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.6.10\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/client_main.c:73
+#, c-format
+msgid "CatChat client (OS homework) 0.11\n"
+msgstr "CatChat(貓聊) 用戶端 (作業系統作業) 0.11\n"
+
+#: src/client_main.c:79
+#, c-format
+msgid "CatChat client usage: [-d socket dir][-v version][-h help]\n"
+msgstr "CatChat(貓聊) 用戶端 用法: [-d socket 位置][-v 版本][-h 幫助]\n"
+
+#: src/client_main.c:93
+#, c-format
+msgid "WIP\n"
+msgstr "努力製作中\n"
+
+#: src/client_main.c:140
+#, c-format
+msgid "\r[SYSTEM] Initializing...\n"
+msgstr "\r[系統] 初始化中...\n"
+
+#: src/client_main.c:160
+#, c-format
+msgid "\r[SYSTEM] Quit...\n"
+msgstr "\r[系統] 離開中...\n"
+
+#: src/client_main.c:185
+#, c-format
+msgid "[SERVER] What is you name: "
+msgstr "[伺服器] 貴姓大名: "
+
+#: src/client_main.c:196
+#, c-format
+msgid "[SERVER] This name has been uesed, use another\n"
+msgstr "[伺服器] 這個名字已經被使用過，請換一個\n"
+
+#: src/client_main.c:220
+#, c-format
+msgid "Help page work in progress\n"
+msgstr "幫助頁面正在製作中\n"
+
+#: src/client_main.c:222
+#, c-format
+msgid "[SYSTEM] Command <:%s> not found\n"
+msgstr "[系統] 指令 <:%s> 不存在\n"
+
+#: src/client_main.c:315
+#, c-format
+msgid "\r[SYSTEM] Disconnected...\n"
+msgstr "\r[系統] 連線中斷...\n"
+
+#: src/client_main.c:319
+#, c-format
+msgid "\r[SYSTEM] To exit CatChat, please type :q<Enter>\n"
+msgstr "\r[系統] 要離開 CatChat(貓聊)，請輸入 :q<Enter>\n"
+
+#: src/client_main.c:322
+#, c-format
+msgid "\rTeaching you, is hard...(noise)\n"
+msgstr "\r要教會你，很難...(雜音)\n"
+
+#: src/client_main.c:323
+#, c-format
+msgid "\rSo you know what? You win, just go...(beep)\n"
+msgstr "\r所以你知道嗎? 你贏了，快走吧...(嗶一聲)\n"
+
+#: src/client_main.c:342
+#, c-format
+msgid "\r[SYSTEM] Connecting...\n"
+msgstr "\r[系統] 連線中...\n"
+
+#: src/client_main.c:346
+#, c-format
+msgid "\r[SYSTEM] Connected!!\n"
+msgstr "\r[系統] 連線成功!!\n"

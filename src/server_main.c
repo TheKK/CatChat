@@ -19,6 +19,8 @@
 
 /* ===================== Headers ===================== */
 #include <getopt.h>
+#include <libintl.h>
+#include <locale.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -57,6 +59,8 @@
 		} \
 	} while(0);
 
+#define _(STRING) gettext(STRING)
+
 /* ===================== Global variables ===================== */
 static char* sock_path;
 static pthread_t accepter_t;
@@ -78,14 +82,14 @@ void sig_handler(int signum, siginfo_t* info, void* ptr);
 void
 server_showVersion()
 {
-	printf("chatchat server (OS homework) 0.01\n");
+	printf(_("CatChat server (OS homework) 0.11\n"));
 }
 
 void
 server_showHelp()
 {
-	printf("chatchat server:[-d socket dir]"
-	       "[-m max client number][-v version][-h help]\n");
+	printf(_("CatChat server Usage: [-d socket dir]"
+	       "[-m max client number][-v version][-h help]\n"));
 }
 
 void
@@ -116,6 +120,15 @@ server_getopt(int argc, char* argv[])
 	}
 }
 
+void
+server_l10nInit()
+{
+	/* l10n stuff */
+	setlocale(LC_ALL, "");
+	bindtextdomain("CatChat_server", "po");
+	textdomain("CatChat_server");
+}
+
 int
 server_init()
 {
@@ -130,7 +143,7 @@ server_init()
 	/* Init user list and other stuffs */
 	userlist = userlist_create();
 	if (!userlist) {
-		fprintf(stderr, "userlist_create() falied\n");
+		fprintf(stderr, _("\r[SYSTEM] userlist_create() falied\n"));
 		return 1;
 	}
 
@@ -141,13 +154,13 @@ server_init()
 	TRY_OR_RETURN(sem_init(&server_threadCreated, 0, 0));
 
 	/* Initialization socket stuffs */
-	printf("\r[SYSTEM]Init...\n");
+	printf(_("\r[SYSTEM] Init system...\n"));
 	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
 
-	printf("\r[SYSTEM]Binding...\n");
+	printf(_("\r[SYSTEM] Binding...\n"));
 	TRY_OR_RETURN(cnct_Bind());
 
-	printf("\r[SYSTEM]Listening...\n");
+	printf(_("\r[SYSTEM] Listening...\n"));
 	TRY_OR_RETURN(cnct_Listen(LISTEN_BACKLOG));
 
 	return 0;
@@ -164,7 +177,7 @@ server_quit()
 	sem_destroy(&server_shouldDie);
 	sem_destroy(&server_threadCreated);
 
-	printf("\r[SYSTEM]Quit...\n");
+	printf(_("\r[SYSTEM] Quit...\n"));
 	TRY_OR_EXIT(cnct_Quit());
 	TRY_OR_EXIT(cnct_Remove());
 }
@@ -204,13 +217,13 @@ server_showOnlineUserTo(int socket)
 	int i;
 	userlist_info_t* userInfo;
 
-	TRY_OR_RETURN(cnct_SendMsg(socket, "====== User list ======"));
+	TRY_OR_RETURN(cnct_SendMsg(socket, _("====== User list ======")));
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 		sprintf(sendMsg,"%5i %s", i, userInfo->name);
 		TRY_OR_RETURN(cnct_SendMsg(socket, sendMsg));
 	}
-	TRY_OR_RETURN(cnct_SendMsg(socket, "====== End ======"));
+	TRY_OR_RETURN(cnct_SendMsg(socket, _("====== End ======")));
 
 	return 0;
 }
@@ -232,7 +245,7 @@ server_addNewUser(int socket, pthread_t tid,
 		}
 	}
 
-	printf("\r[INFO] Client %s connected: peer_socket = %d\n",
+	printf(_("\r[INFO] Client %s connected: peer_socket = %d\n"),
 	       name, socket);
 
 	userlist_add(userlist, socket, tid, name);
@@ -241,18 +254,18 @@ server_addNewUser(int socket, pthread_t tid,
 int
 server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
 {
-	char sendMsg[CONNECT_MAX_MSG_SIZE + sizeof(" say: ") + sizeof(recvMsg)];
+	char sendMsg[CONNECT_MAX_MSG_SIZE + sizeof(recvMsg)];
 	int i, flag;
 	userlist_info_t* userInfo;
 
 	/* Normal texts */
-	printf("\r[MSG]%s (socket = %d) said: %s\n",
+	printf(_("\r[CLIENT] %s(socket = %d) said: %s\n"),
 	       client_name, client_sock, recvMsg);
 
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 
-		sprintf(sendMsg,"%s say: %s", client_name, recvMsg);
+		sprintf(sendMsg,"[%s] %s", client_name, recvMsg);
 		flag = cnct_SendMsg(userInfo->socket, sendMsg);
 		if (flag <= 0)
 			return flag;
@@ -275,18 +288,19 @@ server_doReq(char* client_name, int client_sock, char* req)
 	} else if (sscanf(req, "%[^ ]%[^$]", name, msg) == 2) {	/* DM */
 		userInfo = userlist_findByName(userlist, name);
 		if (userInfo) {
-			sprintf(tosend, "[%s talk to you] %s\n",
+			sprintf(tosend, _("<%s talk to you> %s\n"),
 				client_name, msg);
 			cnct_SendMsg(userInfo->socket, tosend);
 
-			sprintf(tosend, "[you talk to %s] %s\n",
+			sprintf(tosend, _("<you talk to %s> %s\n"),
 				userInfo->name, msg);
 			cnct_SendMsg(client_sock, tosend);
 		} else {
-			cnct_SendMsg(client_sock, "[SERVER] User not found\n");
+			cnct_SendMsg(client_sock,
+				     _("[SERVER] User not found\n"));
 		}
 	} else {
-		sprintf(msg, "[SYSTEM] Request <\\%s> not found\n", req);
+		sprintf(msg, _("[SYSTEM] Request <\\%s> not found\n"), req);
 		TRY_OR_RETURN(cnct_SendMsg(client_sock, msg));
 	}
 
@@ -339,14 +353,14 @@ thread_clientGreeter(void* args)
 
 		/* Check if you cast the spell your grandma told you... */
 		if (strcmp(recvMsg, "palus") == 0) {
-			printf("My eye!!! My EYEEEEEEE!!!\n");
+			printf(_("\rMy eye!!! My EYEEEEEEE!!!\n"));
 			sem_post(&server_shouldDie);
 			client_is_alive = 0;
 			continue;
 		}
 	}
 
-	printf("\r[INFO] Client disconnected: socket = %d\n", client_sock);
+	printf(_("\r[INFO] Client disconnected: socket = %d\n"), client_sock);
 
 	userlist_remove(userlist, name);
 	close(client_sock);
@@ -398,6 +412,8 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
+	server_l10nInit();
+
 	server_getopt(argc, argv);
 	if (sock_path == NULL) {
 		server_showHelp();

@@ -1,0 +1,105 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-10-29 13:33+0800\n"
+"PO-Revision-Date: 2014-10-29 13:44+0800\n"
+"Last-Translator: Ying-Ruei Liang  <thumbd03803@gmail.com>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.6.10\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: zh_TW\n"
+
+#: src/server_main.c:85
+#, c-format
+msgid "CatChat server (OS homework) 0.11\n"
+msgstr "CatChat(貓聊) 伺服器 (作業系統作業) 0.11\n"
+
+#: src/server_main.c:91
+#, c-format
+msgid ""
+"CatChat server Usage: [-d socket dir][-m max client number][-v version][-h "
+"help]\n"
+msgstr ""
+"CatChat(貓聊) 伺服器 用法: [-d socket 位置][-m 最大在線人數][-v 版本][-h 幫"
+"助]\n"
+
+#: src/server_main.c:137
+#, c-format
+msgid "\r[SYSTEM] userlist_create() falied\n"
+msgstr "\r[系統] userlist_create() 失敗\n"
+
+#: src/server_main.c:148
+#, c-format
+msgid "\r[SYSTEM] Init system...\n"
+msgstr "\r[系統] 系統初始化中...\n"
+
+#: src/server_main.c:151
+#, c-format
+msgid "\r[SYSTEM] Binding...\n"
+msgstr "\r[系統] 連接中...\n"
+
+#: src/server_main.c:154
+#, c-format
+msgid "\r[SYSTEM] Listening...\n"
+msgstr "\r[系統] 傾聽中...\n"
+
+#: src/server_main.c:171
+#, c-format
+msgid "\r[SYSTEM] Quit...\n"
+msgstr "\r[系統] 正在離開...\n"
+
+#: src/server_main.c:211
+msgid "====== User list ======"
+msgstr "====== 用戶列表 ======"
+
+#: src/server_main.c:217
+msgid "====== End ======"
+msgstr "====== 頁尾 ======"
+
+#: src/server_main.c:239
+#, c-format
+msgid "\r[INFO] Client %s connected: peer_socket = %d\n"
+msgstr "\r[資訊] 客戶 %s 已連線: peer_socket = %d\n"
+
+#: src/server_main.c:253
+#, c-format
+msgid "\r[CLIENT] %s(socket = %d) said: %s\n"
+msgstr "\r[客戶] %s(socket = %d) 說: %s\n"
+
+#: src/server_main.c:282
+#, c-format
+msgid "<%s talk to you> %s\n"
+msgstr "<%s 跟您說> %s\n"
+
+#: src/server_main.c:286
+#, c-format
+msgid "<you talk to %s> %s\n"
+msgstr "<您告訴 %s> %s\n"
+
+#: src/server_main.c:291
+msgid "[SERVER] User not found\n"
+msgstr "[伺服器] 找不到該名用戶\n"
+
+#: src/server_main.c:294
+#, c-format
+msgid "[SYSTEM] Request <\\%s> not found\n"
+msgstr "[系統] 請求 <\\%s> 不存在\n"
+
+#: src/server_main.c:347
+#, c-format
+msgid "\rMy eye!!! My EYEEEEEEE!!!\n"
+msgstr "\r我的眼睛!!! 我的眼睛啊啊啊啊啊!!!\n"
+
+#: src/server_main.c:354
+#, c-format
+msgid "\r[INFO] Client disconnected: socket = %d\n"
+msgstr "\r[資訊] 用戶斷線: socket = %d\n"

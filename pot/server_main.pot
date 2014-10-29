@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-10-29 13:33+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/server_main.c:85
+#, c-format
+msgid "CatChat server (OS homework) 0.11\n"
+msgstr ""
+
+#: src/server_main.c:91
+#, c-format
+msgid ""
+"CatChat server Usage: [-d socket dir][-m max client number][-v version][-h "
+"help]\n"
+msgstr ""
+
+#: src/server_main.c:137
+#, c-format
+msgid "\r[SYSTEM] userlist_create() falied\n"
+msgstr ""
+
+#: src/server_main.c:148
+#, c-format
+msgid "\r[SYSTEM] Init system...\n"
+msgstr ""
+
+#: src/server_main.c:151
+#, c-format
+msgid "\r[SYSTEM] Binding...\n"
+msgstr ""
+
+#: src/server_main.c:154
+#, c-format
+msgid "\r[SYSTEM] Listening...\n"
+msgstr ""
+
+#: src/server_main.c:171
+#, c-format
+msgid "\r[SYSTEM] Quit...\n"
+msgstr ""
+
+#: src/server_main.c:211
+msgid "====== User list ======"
+msgstr ""
+
+#: src/server_main.c:217
+msgid "====== End ======"
+msgstr ""
+
+#: src/server_main.c:239
+#, c-format
+msgid "\r[INFO] Client %s connected: peer_socket = %d\n"
+msgstr ""
+
+#: src/server_main.c:253
+#, c-format
+msgid "\r[CLIENT] %s(socket = %d) said: %s\n"
+msgstr ""
+
+#: src/server_main.c:282
+#, c-format
+msgid "<%s talk to you> %s\n"
+msgstr ""
+
+#: src/server_main.c:286
+#, c-format
+msgid "<you talk to %s> %s\n"
+msgstr ""
+
+#: src/server_main.c:291
+msgid "[SERVER] User not found\n"
+msgstr ""
+
+#: src/server_main.c:294
+#, c-format
+msgid "[SYSTEM] Request <\\%s> not found\n"
+msgstr ""
+
+#: src/server_main.c:347
+#, c-format
+msgid "\rMy eye!!! My EYEEEEEEE!!!\n"
+msgstr ""
+
+#: src/server_main.c:354
+#, c-format
+msgid "\r[INFO] Client disconnected: socket = %d\n"
+msgstr ""

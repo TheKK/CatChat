@@ -19,6 +19,8 @@
 
 /* ===================== Headers ===================== */
 #include <getopt.h>
+#include <libintl.h>
+#include <locale.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -27,8 +29,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "connect.h"
 #include "mediaManager.h"
@@ -52,6 +54,8 @@
 		} \
 	} while(0);
 
+#define _(STRING) gettext(STRING)
+
 /* ===================== Global variables ===================== */
 char* sock_path;
 pthread_t sender_t, receiver_t;
@@ -66,13 +70,13 @@ void remove_next_line_symbol(char* str);
 void
 client_showVersion()
 {
-	printf("chatchat client (OS homework) 0.01\n");
+	printf(_("CatChat client (OS homework) 0.11\n"));
 }
 
 void
 client_showHelp()
 {
-	printf("chatchat client: [-d socket dir][-v version][-h help]\n");
+	printf(_("CatChat client usage: [-d socket dir][-v version][-h help]\n"));
 }
 
 void
@@ -86,7 +90,7 @@ client_getopt(int argc, char* argv[])
 			sock_path = optarg;
 			break;
 		case 'p':
-			printf("WIP\n");
+			printf(_("WIP\n"));
 			break;
 		case 'v':
 			client_showVersion();
@@ -97,6 +101,15 @@ client_getopt(int argc, char* argv[])
 			break;
 		}
 	}
+}
+
+void
+client_l10nInit()
+{
+	/* l10n stuff */
+	setlocale(LC_ALL, "");
+	bindtextdomain("CatChat_client", "po");
+	textdomain("CatChat_client");
 }
 
 int
@@ -124,7 +137,7 @@ client_init()
 	TRY_OR_RETURN(sem_init(&client_connected, 0, 0));
 
 	/* Initialize socket stuffs */
-	printf("\r[SYSTEM]Init...\n");
+	printf(_("\r[SYSTEM] Initializing...\n"));
 	TRY_OR_RETURN(cnct_Init(AF_LOCAL, sock_path));
 
 	return 0;
@@ -144,7 +157,7 @@ client_quit()
 	sem_destroy(&client_shouldDie);
 	sem_destroy(&client_connected);
 
-	printf("\r[SYSTEM]Quit...\n");
+	printf(_("\r[SYSTEM] Quit...\n"));
 	TRY_OR_EXIT(cnct_Quit());
 }
 
@@ -169,7 +182,7 @@ client_setName()
 
 	/* Tell server you name */
 	while (1) {
-		printf("[SYSTEM]What is you name: ");
+		printf(_("[SERVER] What is you name: "));
 		fgets(msg, MAX_NAME_SIZE, stdin);
 		remove_next_line_symbol(msg);
 
@@ -180,8 +193,8 @@ client_setName()
 			break;
 		}
 		else if (strcmp(msg, "n") == 0) {
-			printf("[SYSTEM] This name is been uesed, "
-			       "use another\n");
+			printf(_("[SERVER] This name has been uesed, "
+				 "use another\n"));
 		}
 	}
 }
@@ -204,9 +217,9 @@ cilent_doCmd(char* cmd)
 	if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0)
 		sem_post(&client_shouldDie);
 	else if (strcmp(cmd, "h") == 0|| strcmp(cmd, "help") == 0)
-		printf("Help page work in progress\n");
+		printf(_("Help page work in progress\n"));
 	else
-		printf("[SYSTEM] Command <:%s> not found\n", cmd);
+		printf(_("[SYSTEM] Command <:%s> not found\n"), cmd);
 
 	return 0;
 }
@@ -299,15 +312,15 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 	static int count = 0;
 
 	if (signum == SIGPIPE) {
-		printf("\r[SYSTEM]Disconnected...\n");
+		printf(_("\r[SYSTEM] Disconnected...\n"));
 		sem_post(&client_shouldDie);
 	}
 
-	printf("\r[SYSTEM]To exit CatChat please type :q<Enter>\n");
+	printf(_("\r[SYSTEM] To exit CatChat, please type :q<Enter>\n"));
 
 	if (count++ == 7) {
-		printf("\rTeaching you, is hard...(noise)\n");
-		printf("\rSo you know what? You win, just go...(beep)\n");
+		printf(_("\rTeaching you, is hard...(noise)\n"));
+		printf(_("\rSo you know what? You win, just go...(beep)\n"));
 		sem_post(&client_shouldDie);
 	}
 }
@@ -316,6 +329,8 @@ sig_handler(int signum, siginfo_t* info, void* ptr)
 int
 main(int argc, char* argv[])
 {
+	client_l10nInit();
+
 	client_getopt(argc, argv);
 	if (sock_path == NULL) {
 		client_showHelp();
@@ -324,11 +339,11 @@ main(int argc, char* argv[])
 
 	TRY_OR_EXIT(client_init());
 
-	printf("\r[SYSTEM]Connecting...\n");
+	printf(_("\r[SYSTEM] Connecting...\n"));
 	TRY_OR_EXIT(cnct_Connect());
 
 	/* Connected  then wait for death... */
-	printf("\r[SYSTEM]Connected!!\n");
+	printf(_("\r[SYSTEM] Connected!!\n"));
 	if (client_checkConnectPermission() == 1) {
 		pthread_create(&sender_t, NULL, (void*) thread_sender, NULL);
 
