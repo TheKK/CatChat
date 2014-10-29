@@ -102,20 +102,37 @@ mdManager_fcopy(const char* inputPath, const char* outputName)
 FILE*
 mdManager_fopen(const char* fileName, const char* mode)
 {
-	char path[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(fileName)];
+	char filePath[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(fileName)];
 	FILE* fd;
 
 	/* Prevent user use ".." in file name to crash program */
 	if (strstr(fileName, ".."))
 	    return NULL;
 
-	sprintf(path, "%s/%s", g_basePath, fileName);
+	sprintf(filePath, "%s/%s", g_basePath, fileName);
 
-	fd = fopen(path, mode);
+	fd = fopen(filePath, mode);
 	if (!fd)
 		return NULL;
 
 	return fd;
+}
+
+int
+mdManager_rm(const char* fileName)
+{
+	char filePath[MEDIA_MANAGER_MAX_FILE_NAME_LEN + sizeof(fileName)];
+
+	/* Prevent user use ".." in file name to crash program */
+	if (strstr(fileName, ".."))
+	    return -1;
+
+	sprintf(filePath, "%s/%s", g_basePath, fileName);
+
+	if (remove(filePath))
+		return -1;
+
+	return 0;
 }
 
 int

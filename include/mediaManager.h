@@ -40,6 +40,8 @@ int mdManager_fcopy(const char* inputPath, const char* outputName);
 
 FILE* mdManager_fopen(const char* fileName, const char* mode);
 
+int mdManager_rm(const char* fileName);
+
 int mdManager_fileExist(const char* filePath);
 
 #endif	/* MEDIA_MANAGER_H */

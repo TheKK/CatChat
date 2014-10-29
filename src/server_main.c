@@ -252,21 +252,17 @@ server_addNewUser(int socket, pthread_t tid,
 }
 
 int
-server_sendMsgToEveryone(char* client_name, int client_sock, char* recvMsg)
+server_sendMsgToEveryone(char* msg)
 {
-	char sendMsg[CONNECT_MAX_MSG_SIZE + strlen(recvMsg) + 1];
 	int i, flag;
 	userlist_info_t* userInfo;
 
-	/* Normal texts */
-	printf(_("\r[CLIENT] %s(socket = %d) said: %s\n"),
-	       client_name, client_sock, recvMsg);
-
+	/* Server log? */
+	printf(_("\r[Client] %s\n"), msg);
 	for (i = 0; i < userlist_getCurrentSize(userlist); i++) {
 		userInfo = userlist_findByIndex(userlist, i);
 
-		sprintf(sendMsg,"[%s] %s", client_name, recvMsg);
-		flag = cnct_SendMsg(userInfo->socket, sendMsg);
+		flag = cnct_SendMsg(userInfo->socket, msg);
 		if (flag <= 0)
 			return flag;
 	}
@@ -283,16 +279,17 @@ server_doReq(char* client_name, int client_sock, char* req)
 	userlist_info_t* userInfo;
 
 	/* Command from client */
-	if (strcmp(req, "users") == 0) {			/* /user */
+	if (strcmp(req, "users") == 0) {	/* Check online users */
 		TRY_OR_RETURN(server_showOnlineUserTo(client_sock));
+
 	} else if (sscanf(req, "%[^ ]%*c%[^$]", name, msg) == 2) {	/* DM */
 		userInfo = userlist_findByName(userlist, name);
 		if (userInfo) {
-			sprintf(tosend, _("<%s talk to you> %s\n"),
+			sprintf(tosend, _("<%s talk to you> %s"),
 				client_name, msg);
 			cnct_SendMsg(userInfo->socket, tosend);
 
-			sprintf(tosend, _("<you talk to %s> %s\n"),
+			sprintf(tosend, _("<you talk to %s> %s"),
 				userInfo->name, msg);
 			cnct_SendMsg(client_sock, tosend);
 		} else {
@@ -313,8 +310,9 @@ thread_clientGreeter(void* args)
 {
 	/* TODO: User char pointer rather array of char */
 	FILE* fd;
-	char name[USERLIST_MAX_NAME_SIZE + 1];
+	char client_name[USERLIST_MAX_NAME_SIZE + 1];
 	char recvMsg[CONNECT_MAX_MSG_SIZE + 1];
+	char sendMsg[CONNECT_MAX_MSG_SIZE + 1];
 	int client_sock, flag, client_is_alive;
 	uint32_t type;
 
@@ -323,7 +321,7 @@ thread_clientGreeter(void* args)
 	/* Tell server you've used job_args and others can use it now */
 	sem_post(&server_threadCreated);
 
-	server_addNewUser(client_sock, pthread_self(), name);
+	server_addNewUser(client_sock, pthread_self(), client_name);
 
 	client_is_alive = 1;
 	while (client_is_alive) {
@@ -342,7 +340,8 @@ thread_clientGreeter(void* args)
 				continue;
 			}
 
-			server_sendMsgToEveryone(name, client_sock, recvMsg);
+			sprintf(sendMsg,"[%s] %s", client_name, recvMsg);
+			server_sendMsgToEveryone(sendMsg);
 			break;
 		case CNCT_TYPE_REQ:
 			flag = cnct_RecvMsg(client_sock, recvMsg);
@@ -351,7 +350,7 @@ thread_clientGreeter(void* args)
 				continue;
 			}
 
-			server_doReq(name, client_sock, recvMsg);
+			server_doReq(client_name, client_sock, recvMsg);
 			break;
 		case CNCT_TYPE_FILE: /* TODO clean!!!!!!! */
 			/* Name of file */
@@ -362,11 +361,8 @@ thread_clientGreeter(void* args)
 			}
 
 			if (mdManager_fileExist(recvMsg))
-				cnct_SendMsg(client_sock, "n");
-			else
-				cnct_SendMsg(client_sock, "y");
+				mdManager_rm(recvMsg);
 
-			/* Start receive file */
 			fd = mdManager_fopen(recvMsg, "wb");
 			if (fd == NULL) {
 				perror("mdManager_fopen()");
@@ -378,6 +374,11 @@ thread_clientGreeter(void* args)
 				client_is_alive = 0;
 				continue;
 			}
+
+			sprintf(sendMsg,
+				_("\r[SERVER] File \"%s\" uploaded"),
+				recvMsg);
+			server_sendMsgToEveryone(sendMsg);
 
 			fclose(fd);
 			break;
@@ -394,7 +395,7 @@ thread_clientGreeter(void* args)
 
 	printf(_("\r[INFO] Client disconnected: socket = %d\n"), client_sock);
 
-	userlist_remove(userlist, name);
+	userlist_remove(userlist, client_name);
 	close(client_sock);
 
 	return NULL;

@@ -79,7 +79,6 @@ int
 cmd_uploadFile(char* filePath)
 {
 	FILE* fd;
-	char permission[2];
 	int flag;
 
 	/*
@@ -87,14 +86,8 @@ cmd_uploadFile(char* filePath)
 	 *
 	 * Step I:	Tell server this is a file transter request
 	 * Step II:	Tell server the name of this file
-	 * Step III	Wait server to tell you if it allow you to send
-	 *
-	 * 		[if allow]
-	 * Step IV:	Send this file to server
-	 * 		Done
-	 *
-	 * 		[if disallow]
-	 * Step IV':	Done?
+	 * Step III:	Send this file to server
+	 * Step IV:	Done
 	 */
 
 	fd = mdManager_fopen(filePath, "rb");
@@ -120,27 +113,14 @@ cmd_uploadFile(char* filePath)
 	}
 
 	/* Step III */
-	flag = cnct_RecvMsg(cnct_GetSocket(), permission);
-	if (permission[0] == 'y') {		/* Yes, you can upload */
-		/* Step IV */
-		flag = cnct_SendFile(cnct_GetSocket(), fd);
-		if (flag <= 0) {
-			perror("cnct_SendFile()");
-			fclose(fd);
-			return -1;
-		}
-
-		printf(_("[SYSTEM] File \"%s\" uploaded\n"), filePath);
-
-	/* Step IV' */
-	} else if (permission[0] == 'n') {	/* NO, you can't upload */
-		printf(_("[SYSTEM] File \"%s\" has exist on server, "
-			 "maybe you can change a name and try again\n"),
-		       filePath);
-	} else {
-		printf(_("[SYSTEM] You should not got here!!!\n"));
+	flag = cnct_SendFile(cnct_GetSocket(), fd);
+	if (flag <= 0) {
+		perror("cnct_SendFile()");
+		fclose(fd);
+		return -1;
 	}
 
+	/* Step IV */
 	fclose(fd);
 
 	return 0;
